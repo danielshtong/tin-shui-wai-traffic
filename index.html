@@ -301,7 +301,7 @@
     <div class="brand">
       <div class="kicker">🛰️ 聚星路現場板</div>
       <h1>聚星路 · 人流與交通實況</h1>
-      <p>用 CocoPi 人數警示＋運輸署幹道探測器，一眼睇晒天水圍聚星路一帶熱鬧程度同附近路況。人數同交通齊轉黃／紅先提示「建議通知執法」。</p>
+      <p>用 CocoPi 人數警示＋運輸署幹道探測器，一眼睇晒天水圍聚星路一帶熱鬧程度同附近路況。人數同交通齊轉黃／紅先提示「建議通知執法」。人數／交通各每分鐘更新；地區地圖顏色用政府公開資料。</p>
       <div class="chips">
         <span class="chip" id="chipPeopleSrc">人流：載入中…</span>
         <span class="chip" id="chipTrafficSrc">交通：載入中…</span>
@@ -326,7 +326,7 @@
   <section class="card map-card">
     <div class="map-head">
       <h2>🗺️ 聚星路一帶交通</h2>
-      <div class="meta" id="mapMeta">聚焦朗天路／天影路探測器</div>
+      <div class="meta" id="mapMeta">政府公開資料 · 朗天路／天影路 · 每分鐘</div>
     </div>
     <div id="map"></div>
     <div class="legend-bar">
@@ -355,7 +355,7 @@
 
       <div class="demo-box" id="demoBox">
         <h3>🎮 課堂演示模式</h3>
-        <p id="demoHint">實時讀取 CocoPi <code>no_of_people</code>；離線時可用滑桿模擬人數練雙條件。</p>
+        <p id="demoHint">CocoPi <code>no_of_people</code> 每 1 分鐘更新；離線時可用滑桿模擬人數練雙條件。</p>
         <label><span>模擬人數</span><span id="demoVal">80</span></label>
         <input type="range" id="demoSlider" min="0" max="500" value="80" step="1">
         <div class="demo-btns">
@@ -395,8 +395,9 @@
   </section>
 
   <footer class="card foot">
-    <span>交通來源：<a href="https://data.gov.hk/tc-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads" target="_blank" rel="noopener">運輸署主要幹道數據</a></span>
+    <span>交通來源：<a href="https://data.gov.hk/tc-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads" target="_blank" rel="noopener">運輸署主要幹道數據</a>（政府公開資料，地圖綠黃紅）</span>
     <span>人流來源：CocoPi IoT <code style="font-size:.68rem">…/eventAPIKey/…</code>（欄位 no_of_people）</span>
+    <span>更新頻率：人數／交通各每分鐘更新</span>
     <span>雙條件：人流黃／紅 ＋ 附近探測器黃／紅 → 升級提示</span>
   </footer>
 </div>
@@ -411,8 +412,8 @@
   const PEOPLE_URLS = [
     'https://api.cocorobo.hk/iot/data/eventAPIKey/01b2720b44a677545bcdc4627929f54c'
   ];
-  const IOT_POLL_MS = 2500;
-  const TRAFFIC_POLL_MS = 90000;
+  const IOT_POLL_MS = 60000;
+  const TRAFFIC_POLL_MS = 60000;
   const HISTORY_MAX = 60;
 
   const PRIORITY_IDS = [
@@ -672,12 +673,12 @@
     else if (count != null) el.statTs.textContent = hkTime(new Date());
 
     if (source === 'iot') {
-      el.chipPeopleSrc.textContent = '人流：CocoPi 實時';
+      el.chipPeopleSrc.textContent = '人流：CocoPi（每分鐘）';
       el.chipPeopleSrc.className = 'chip live';
-      el.chipMode.textContent = '模式：實時 IoT';
+      el.chipMode.textContent = '模式：實時 IoT · 每分鐘';
       el.chipMode.className = 'chip live';
-      el.statIot.textContent = '✅ 已連線';
-      el.demoHint.textContent = '已收到 CocoPi 數據；滑桿仍可臨時覆寫做課堂對比。';
+      el.statIot.textContent = '✅ 已連線（每分鐘）';
+      el.demoHint.textContent = '已收到 CocoPi 數據（每 1 分鐘更新）；滑桿仍可臨時覆寫做課堂對比。';
     } else if (source === 'demo') {
       el.chipPeopleSrc.textContent = '人流：演示模式';
       el.chipPeopleSrc.className = 'chip warn';
@@ -806,7 +807,7 @@
       state.trafficById = byId;
       let hit = 0;
       PRIORITY_IDS.forEach(function (id) { if (byId[id]) hit++; });
-      el.chipTrafficSrc.textContent = '交通：已更新（命中 ' + hit + '/' + PRIORITY_IDS.length + '）';
+      el.chipTrafficSrc.textContent = '交通：政府公開資料（每分鐘 · 命中 ' + hit + '/' + PRIORITY_IDS.length + '）';
       el.chipTrafficSrc.className = hit ? 'chip live' : 'chip warn';
       renderDetectors();
     } catch (err) {
@@ -924,7 +925,7 @@
     if (state.peopleSource !== 'demo') {
       el.chipMode.textContent = '模式：課堂演示';
       el.chipMode.className = 'chip warn';
-      el.demoHint.textContent = 'CocoPi people API 暫時 404／無法連線。請用滑桿模擬人數，API 恢復後會自動接上。';
+      el.demoHint.textContent = 'CocoPi 暫時無法連線（會每分鐘重試）。請用滑桿模擬人數，恢復後會自動接上。';
       // seed demo once if no people yet
       if (state.people == null) {
         applyDemo(Number(el.demoSlider.value), false);
