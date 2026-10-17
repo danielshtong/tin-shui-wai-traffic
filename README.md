@@ -6,6 +6,17 @@
 
 https://danielshtong.github.io/tin-shui-wai-traffic/
 
+
+## CocoPi IoT 實時（光照）
+
+- HTTPS API（建議；部分網絡 HTTP 會 timeout）：
+  `https://api.cocorobo.hk/iot/data/eventAPIKey/32249302422602a03f2aa4863f3c7ab6`
+- 回應例：`{"data":[{"light_value":"70","meta":{"id":28,"timestamp":1792247335}}]}`
+- 頁面約每 **2.5 秒** 輪詢；僅當 `meta.id` 更新時寫入圖表／紀錄（保留約 80 點）
+- 現階段裝置送出 **light_value**（光照）；條件1人數仍用左側演示滑桿。若日後 JSON 含 `count`／`level`／`surge`，會自動接入雙條件邏輯
+- CORS：`Access-Control-Allow-Origin: *`，瀏覽器可直接抓取
+
+
 ## 雙條件規則
 
 | 條件 | 觸發方式 |

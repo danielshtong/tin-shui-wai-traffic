@@ -6,6 +6,7 @@
 <title>天水圍雙條件示範｜人流＋交通</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #0f172a;
@@ -114,10 +115,10 @@
     50% { box-shadow: 0 8px 36px rgba(239,68,68,.65); }
   }
 
-  /* Condition 1 panel */
+  /* Condition 1 + IoT chart panel */
   .cond1 {
     top: 56px; left: 12px; padding: 12px 14px; font-size: .78rem;
-    width: min(280px, calc(100vw - 24px)); max-height: calc(100vh - 120px); overflow: auto;
+    width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 100px); overflow: auto;
     color: var(--muted); line-height: 1.4;
   }
   .cond1 label { display: block; margin: 6px 0 2px; color: var(--ink); font-weight: 600; font-size: .75rem; }
@@ -136,15 +137,39 @@
   }
   .cond1 .stats span { color: var(--muted); }
   .cond1 .hint { font-size: .7rem; margin-top: 6px; color: var(--muted); }
+  .cond1 .section-title {
+    margin: 10px 0 4px; font-size: .8rem; font-weight: 700; color: #fbbf24;
+    border-top: 1px solid rgba(148,163,184,.2); padding-top: 8px;
+  }
+  .cond1 .section-title:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+  .chart-wrap {
+    position: relative; height: 140px; margin-top: 8px;
+    background: rgba(15,23,42,.6); border-radius: 8px; padding: 4px;
+  }
+  .iot-log {
+    margin-top: 6px; max-height: 100px; overflow: auto; font-size: .68rem;
+    border: 1px solid rgba(148,163,184,.2); border-radius: 8px;
+  }
+  .iot-log table { width: 100%; border-collapse: collapse; }
+  .iot-log th, .iot-log td { padding: 3px 6px; text-align: left; border-bottom: 1px solid rgba(148,163,184,.15); }
+  .iot-log th { color: var(--accent); position: sticky; top: 0; background: var(--panel); }
+  .iot-log td { color: var(--ink); }
+  .iot-live-badge {
+    display: inline-block; font-size: .65rem; padding: 2px 6px; border-radius: 999px;
+    background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.35);
+    margin-left: 4px;
+  }
+  .iot-live-badge.off { background: rgba(148,163,184,.15); color: var(--muted); border-color: rgba(148,163,184,.3); }
 
   @media (max-width: 720px) {
     h1 { font-size: .92rem; }
     .info { display: none; }
-    .news { max-width: calc(100vw - 170px); max-height: 100px; font-size: .68rem; bottom: 12px; }
+    .news { max-width: calc(100vw - 170px); max-height: 90px; font-size: .68rem; bottom: 12px; }
     .legend { bottom: 12px; left: 8px; padding: 8px 10px; }
-    .cond1 { top: auto; bottom: 150px; left: 8px; max-height: 38vh; width: min(260px, calc(100vw - 16px)); }
+    .cond1 { top: auto; bottom: 140px; left: 8px; max-height: 42vh; width: min(300px, calc(100vw - 16px)); }
     .banner { top: 48px; font-size: .82rem; padding: 10px 12px; }
     .banner.upgrade { font-size: .92rem; }
+    .chart-wrap { height: 110px; }
   }
 </style>
 </head>
@@ -162,7 +187,29 @@
 </div>
 
 <aside class="panel cond1" id="cond1Panel">
-  <h2>條件1 · CocoPi 人數</h2>
+  <h2>CocoPi IoT 實時<span class="iot-live-badge off" id="iotLiveBadge">輪詢中</span></h2>
+  <p style="margin:0 0 6px;font-size:.72rem;color:#fbbf24">現為光照 light_value（人數 count 未接時用下方演示滑桿做條件1）</p>
+  <label for="iotUrl">IoT API（HTTPS）</label>
+  <input type="url" id="iotUrl" value="https://api.cocorobo.hk/iot/data/eventAPIKey/32249302422602a03f2aa4863f3c7ab6" autocomplete="off">
+  <div class="controls">
+    <button type="button" id="btnLoadIot">重新載入</button>
+    <button type="button" id="btnClearHistory">清空圖表</button>
+  </div>
+  <div class="stats" id="iotLiveStats">
+    <div>light_value：<span id="statLight">—</span></div>
+    <div>count（若有）：<span id="statIotCount">—</span></div>
+    <div>meta.id：<span id="statMetaId">—</span></div>
+    <div>時間（香港）：<span id="statIotTime">—</span></div>
+  </div>
+  <div class="chart-wrap"><canvas id="iotChart"></canvas></div>
+  <div class="iot-log">
+    <table>
+      <thead><tr><th>時間</th><th>id</th><th>數值</th></tr></thead>
+      <tbody id="iotLogBody"></tbody>
+    </table>
+  </div>
+
+  <div class="section-title">條件1 · 人數演示（獨立於光照）</div>
   <label for="peopleCount">演示人數（count）</label>
   <input type="range" id="peopleSlider" min="0" max="80" value="0">
   <div class="row2">
@@ -180,20 +227,17 @@
   </div>
   <label for="countThreshold">人數門檻 N（count ≥ N 亦觸發）</label>
   <input type="number" id="countThreshold" min="1" max="999" value="4" style="width:72px">
-  <label for="iotUrl">可選 IoT JSON 網址（GET）</label>
-  <input type="url" id="iotUrl" placeholder="https://…/people.json" autocomplete="off">
   <div class="controls">
-    <button type="button" id="btnLoadIot">載入 IoT</button>
     <button type="button" id="btnApplyDemo" class="primary">套用演示值</button>
   </div>
   <div class="stats" id="iotStats">
-    <div>最近收到：<span id="statCount">—</span> 人</div>
+    <div>條件1人數：<span id="statCount">—</span> 人</div>
     <div>level：<span id="statLevel">—</span>　surge：<span id="statSurge">—</span></div>
     <div>device：<span id="statDevice">—</span>　zone：<span id="statZone">—</span></div>
     <div>ts：<span id="statTs">—</span></div>
     <div>來源：<span id="statSource">演示</span></div>
   </div>
-  <p class="hint">觸發條件1：level 為 yellow／red，或 surge＝true，或 count ≥ N（預設 4；演示滑桿約 yellow≥4／red≥7）。達標後若附近天影路／朗天路探測器有黃／紅 →「建議通知執法」。交通：紅＝佔用≥60%或車速≤20；黃＝佔用≥40%或車速≤40。</p>
+  <p class="hint">觸發條件1：level 為 yellow／red，或 surge＝true，或 count ≥ N（預設 4）。達標後若附近天影路／朗天路探測器有黃／紅 →「建議通知執法」。IoT 若日後帶 count／level／surge 會自動寫入條件1。</p>
 </aside>
 
 <aside class="panel legend">
@@ -225,7 +269,9 @@ const DETECTORS = [{"id": "TDS90060", "district": "Yuen Long", "road_tc": "元�
 const XML_URL = 'https://resource.data.one.gov.hk/td/traffic-detectors/rawSpeedVol-all.xml';
 const NEWS_URL = 'https://www.td.gov.hk/tc/special_news/trafficnews.xml';
 const REFRESH_MS = 90000;
-const IOT_POLL_MS = 15000;
+const IOT_POLL_MS = 2500;
+const IOT_HISTORY_MAX = 80;
+const DEFAULT_IOT_URL = 'https://api.cocorobo.hk/iot/data/eventAPIKey/32249302422602a03f2aa4863f3c7ab6';
 /** Nearby = all TDSTYR* (Tin Ying Rd) and TDSLTR* (Long Tin Rd) on the map */
 const NEARBY_PREFIXES = ['TDSTYR', 'TDSLTR'];
 
@@ -261,7 +307,8 @@ const peopleState = {
   source: '演示'
 };
 
-let iotPollTimer = null;
+
+
 
 function makeIcon(color) {
   return L.divIcon({
@@ -516,49 +563,261 @@ function readDemoControls() {
   }, '演示');
 }
 
-async function loadIot() {
-  const url = (document.getElementById('iotUrl').value || '').trim();
-  const btn = document.getElementById('btnLoadIot');
-  if (!url) {
-    readDemoControls();
-    return;
+let iotPollTimer = null;
+let lastMetaId = null;
+const iotHistory = []; // {id, tsSec, timeLabel, light, count, raw}
+
+function hkTimeFromUnix(sec) {
+  if (sec == null || !Number.isFinite(Number(sec))) return '—';
+  const d = new Date(Number(sec) * 1000);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong', hour12: false });
+}
+
+function hkTimeNowLabel() {
+  return new Date().toLocaleTimeString('zh-HK', { timeZone: 'Asia/Hong_Kong', hour12: false });
+}
+
+function extractIotRecord(payload) {
+  // CocoPi: { data: [ { light_value, count?, level?, ... meta:{id,timestamp} } ] }
+  // Also accept flat people JSON: { count, level, surge, ts, device_id, zone }
+  if (!payload || typeof payload !== 'object') return null;
+  let row = null;
+  if (Array.isArray(payload.data) && payload.data.length) {
+    row = payload.data[0];
+  } else if (payload.light_value != null || payload.count != null || payload.meta) {
+    row = payload;
+  } else if (payload.count != null || payload.level != null) {
+    // flat people payload
+    return {
+      metaId: payload.meta?.id ?? payload.id ?? null,
+      tsSec: payload.meta?.timestamp ?? null,
+      light: null,
+      count: payload.count != null ? Number(payload.count) : null,
+      level: payload.level,
+      surge: payload.surge,
+      ts: payload.ts,
+      device_id: payload.device_id,
+      zone: payload.zone,
+      flatPeople: true,
+      numericFields: {}
+    };
+  } else {
+    return null;
   }
-  btn.disabled = true;
+  const meta = row.meta || {};
+  const numericFields = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (k === 'meta') continue;
+    const n = Number(v);
+    if (Number.isFinite(n)) numericFields[k] = n;
+  }
+  const light = row.light_value != null ? Number(row.light_value) : (numericFields.light_value ?? null);
+  const count = row.count != null ? Number(row.count) : (numericFields.count ?? null);
+  return {
+    metaId: meta.id != null ? meta.id : null,
+    tsSec: meta.timestamp != null ? Number(meta.timestamp) : null,
+    light: Number.isFinite(light) ? light : null,
+    count: Number.isFinite(count) ? count : null,
+    level: row.level,
+    surge: row.surge,
+    ts: row.ts,
+    device_id: row.device_id,
+    zone: row.zone,
+    flatPeople: false,
+    numericFields
+  };
+}
+
+let iotChart = null;
+function ensureChart() {
+  if (iotChart) return iotChart;
+  const ctx = document.getElementById('iotChart');
+  if (!ctx || typeof Chart === 'undefined') return null;
+  iotChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'light_value',
+          data: [],
+          borderColor: '#fbbf24',
+          backgroundColor: 'rgba(251,191,36,.15)',
+          tension: 0.25,
+          pointRadius: 2,
+          borderWidth: 2,
+          yAxisID: 'y'
+        },
+        {
+          label: 'count',
+          data: [],
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56,189,248,.12)',
+          tension: 0.25,
+          pointRadius: 2,
+          borderWidth: 2,
+          yAxisID: 'y',
+          hidden: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 200 },
+      plugins: {
+        legend: { labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } } },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#64748b', maxRotation: 0, autoSkip: true, maxTicksLimit: 6, font: { size: 9 } },
+          grid: { color: 'rgba(148,163,184,.12)' }
+        },
+        y: {
+          ticks: { color: '#94a3b8', font: { size: 9 } },
+          grid: { color: 'rgba(148,163,184,.12)' }
+        }
+      }
+    }
+  });
+  return iotChart;
+}
+
+function refreshChartAndLog() {
+  const chart = ensureChart();
+  if (chart) {
+    chart.data.labels = iotHistory.map(h => h.timeLabel);
+    chart.data.datasets[0].data = iotHistory.map(h => h.light);
+    const hasCount = iotHistory.some(h => h.count != null);
+    chart.data.datasets[1].data = iotHistory.map(h => h.count);
+    chart.data.datasets[1].hidden = !hasCount;
+    chart.update('none');
+  }
+  const tbody = document.getElementById('iotLogBody');
+  if (tbody) {
+    const rows = [...iotHistory].slice().reverse().slice(0, 20);
+    tbody.innerHTML = rows.map(h => {
+      const vals = [];
+      if (h.light != null) vals.push('light=' + h.light);
+      if (h.count != null) vals.push('count=' + h.count);
+      return `<tr><td>${escapeHtml(h.timeFull || h.timeLabel)}</td><td>${escapeHtml(String(h.id ?? '—'))}</td><td>${escapeHtml(vals.join(' · ') || '—')}</td></tr>`;
+    }).join('');
+  }
+}
+
+function appendIotHistory(rec) {
+  const timeFull = rec.tsSec != null ? hkTimeFromUnix(rec.tsSec) : new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong', hour12: false });
+  const timeLabel = rec.tsSec != null
+    ? new Date(rec.tsSec * 1000).toLocaleTimeString('zh-HK', { timeZone: 'Asia/Hong_Kong', hour12: false })
+    : hkTimeNowLabel();
+  iotHistory.push({
+    id: rec.metaId,
+    tsSec: rec.tsSec,
+    timeLabel,
+    timeFull,
+    light: rec.light,
+    count: rec.count
+  });
+  while (iotHistory.length > IOT_HISTORY_MAX) iotHistory.shift();
+  refreshChartAndLog();
+}
+
+function updateIotLiveUi(rec) {
+  document.getElementById('statLight').textContent = rec.light != null ? String(rec.light) : '—';
+  document.getElementById('statIotCount').textContent = rec.count != null ? String(rec.count) : '—';
+  document.getElementById('statMetaId').textContent = rec.metaId != null ? String(rec.metaId) : '—';
+  document.getElementById('statIotTime').textContent = rec.tsSec != null ? hkTimeFromUnix(rec.tsSec) : '—';
+  const badge = document.getElementById('iotLiveBadge');
+  if (badge) {
+    badge.textContent = '已連接';
+    badge.classList.remove('off');
+  }
+}
+
+function maybeApplyPeopleFromIot(rec) {
+  // Only push into Condition1 when people fields exist (not light-only)
+  const hasPeople = rec.count != null || rec.level != null || rec.surge != null || rec.flatPeople;
+  if (!hasPeople) return;
+  applyPeoplePayload({
+    count: rec.count != null ? rec.count : peopleState.count,
+    level: rec.level != null ? rec.level : peopleState.level,
+    surge: rec.surge != null ? rec.surge : peopleState.surge,
+    ts: rec.ts != null ? rec.ts : (rec.tsSec != null ? hkTimeFromUnix(rec.tsSec) : new Date().toISOString()),
+    device_id: rec.device_id,
+    zone: rec.zone
+  }, 'IoT');
+}
+
+function processIotPayload(payload) {
+  const rec = extractIotRecord(payload);
+  if (!rec) return;
+  updateIotLiveUi(rec);
+  const isNew = rec.metaId != null && rec.metaId !== lastMetaId;
+  const lightChanged = iotHistory.length && rec.light != null && iotHistory[iotHistory.length - 1].light !== rec.light;
+  const tsChanged = iotHistory.length && rec.tsSec != null && iotHistory[iotHistory.length - 1].tsSec !== rec.tsSec;
+  if (isNew || (rec.metaId == null && (lightChanged || tsChanged || !iotHistory.length))) {
+    if (rec.metaId != null) lastMetaId = rec.metaId;
+    appendIotHistory(rec);
+  } else if (!iotHistory.length) {
+    // first sample even if id null
+    appendIotHistory(rec);
+    if (rec.metaId != null) lastMetaId = rec.metaId;
+  }
+  maybeApplyPeopleFromIot(rec);
+}
+
+async function fetchIotOnce(url, { noisy } = {}) {
   try {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    applyPeoplePayload(data, 'IoT');
-    // auto-poll while URL is set
-    if (iotPollTimer) clearInterval(iotPollTimer);
-    iotPollTimer = setInterval(() => loadIotQuiet(url), IOT_POLL_MS);
+    processIotPayload(data);
+    return true;
   } catch (err) {
-    console.error(err);
-    const badge = document.getElementById('statusBadge');
-    badge.textContent = 'IoT 載入失敗：' + (err.message || err);
-    badge.className = 'badge err';
-  } finally {
-    btn.disabled = false;
+    console.warn('iot', err);
+    const badge = document.getElementById('iotLiveBadge');
+    if (badge) {
+      badge.textContent = '失敗';
+      badge.classList.add('off');
+    }
+    if (noisy) {
+      const b = document.getElementById('statusBadge');
+      b.textContent = 'IoT 失敗：' + (err.message || err);
+      b.className = 'badge err';
+    }
+    return false;
   }
 }
 
-async function loadIotQuiet(url) {
-  try {
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) return;
-    const data = await res.json();
-    applyPeoplePayload(data, 'IoT');
-  } catch (e) {
-    console.warn('iot poll', e);
-  }
+function startIotPolling(url) {
+  if (iotPollTimer) clearInterval(iotPollTimer);
+  iotPollTimer = setInterval(() => fetchIotOnce(url), IOT_POLL_MS);
 }
 
-// Demo UI wiring
+async function loadIot({ noisy } = { noisy: true }) {
+  const url = (document.getElementById('iotUrl').value || '').trim() || DEFAULT_IOT_URL;
+  document.getElementById('iotUrl').value = url;
+  const btn = document.getElementById('btnLoadIot');
+  if (btn) btn.disabled = true;
+  await fetchIotOnce(url, { noisy });
+  startIotPolling(url);
+  if (btn) btn.disabled = false;
+}
+
+function clearIotHistory() {
+  iotHistory.length = 0;
+  lastMetaId = null;
+  refreshChartAndLog();
+}
+
+
+// Demo UI wiring (people Condition1 — independent of light IoT)
 const slider = document.getElementById('peopleSlider');
 const countInput = document.getElementById('peopleCount');
 slider.addEventListener('input', () => {
   countInput.value = slider.value;
-  // Demo defaults: yellow≥4 / red≥7 (room-aligned)
   const n = parseInt(slider.value, 10) || 0;
   if (n >= 7) document.getElementById('peopleLevel').value = 'red';
   else if (n >= 4) document.getElementById('peopleLevel').value = 'yellow';
@@ -573,16 +832,19 @@ document.getElementById('peopleLevel').addEventListener('change', readDemoContro
 document.getElementById('peopleSurge').addEventListener('change', readDemoControls);
 document.getElementById('countThreshold').addEventListener('change', evaluateDual);
 document.getElementById('btnApplyDemo').addEventListener('click', () => {
-  if (iotPollTimer) { clearInterval(iotPollTimer); iotPollTimer = null; }
   readDemoControls();
 });
-document.getElementById('btnLoadIot').addEventListener('click', loadIot);
+document.getElementById('btnLoadIot').addEventListener('click', () => loadIot({ noisy: true }));
+document.getElementById('btnClearHistory').addEventListener('click', clearIotHistory);
+
 
 document.getElementById('btnRefresh').addEventListener('click', () => { fetchTraffic(); fetchNews(); });
 fetchTraffic();
 fetchNews();
 syncPeopleUiFromState();
 evaluateDual();
+ensureChart();
+loadIot({ noisy: false });
 setInterval(fetchTraffic, REFRESH_MS);
 setInterval(fetchNews, REFRESH_MS * 2);
 </script>
