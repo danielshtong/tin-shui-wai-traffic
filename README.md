@@ -10,7 +10,7 @@ https://danielshtong.github.io/tin-shui-wai-traffic/
 
 | 條件 | 觸發方式 |
 |------|----------|
-| **條件1（人數）** | CocoPi／演示：`level` 為 yellow 或 red，**或** `surge`＝true，**或** `count` ≥ 可調門檻 N（預設 15） |
+| **條件1（人數）** | CocoPi／演示：`level` 為 yellow 或 red，**或** `surge`＝true，**或** `count` ≥ 可調門檻 N（預設 4；演示 yellow≥4／red≥7） |
 | **條件2（交通）** | 附近探測器（見下）任一為黃或紅（與地圖顏色相同） |
 
 - **兩樣齊** → 橫幅顯示「**建議通知執法**」（附人數＋交通原因）
@@ -25,14 +25,19 @@ https://danielshtong.github.io/tin-shui-wai-traffic/
 
 ```json
 {
-  "count": 22,
+  "device_id": "cocopi-tsw-01",
+  "zone": "tin-shui-wai",
+  "count": 6,
   "level": "yellow",
   "surge": false,
-  "ts": "2026-10-17T20:00:00+08:00"
+  "ts": "2026-10-17T20:07:00+08:00"
 }
 ```
 
-頁面左側有演示滑桿／等級／surge，以及可選 **IoT JSON URL**（GET）；填入後按「載入 IoT」會拉取並約每 15 秒輪詢。無 URL 時只用演示值。
+- 觸發：`level` 為 yellow／red，**或** `surge`＝true，**或** `count` ≥ N（預設 **4**）
+- 演示滑桿會自動對齊約 **yellow≥4／red≥7**
+- 可選欄位 `device_id`、`zone` 會顯示在條件1面板
+- 左側有演示控制＋可選 **IoT JSON URL**（GET）；填入後「載入 IoT」並約每 15 秒輪詢
 
 ## 資料來源（條件2）
 
@@ -43,16 +48,16 @@ https://danielshtong.github.io/tin-shui-wai-traffic/
 
 本示範**不使用**智慧燈柱數據（天水圍無覆蓋）。
 
-## 交通顏色說明
+## 交通顏色說明（條件2，房間議定）
 
 | 顏色 | 條件 |
 |------|------|
-| 綠（暢通） | 平均車速 ≥ 45 km/h 且 佔用率 &lt; 18% |
-| 黃（一般） | 車速 &lt; 45 或 佔用率 ≥ 18% |
-| 紅（擠塞） | 車速 &lt; 25 或 佔用率 ≥ 35% |
+| 紅（擠塞） | 佔用率 ≥ 60% **或** 車速 ≤ 20 km/h |
+| 黃（一般） | 佔用率 ≥ 40% **或** 車速 ≤ 40 km/h |
+| 綠（暢通） | 其餘 |
 | 灰 | 該時段無有效車道數據 |
 
-高流量但高車速仍顯示綠色（暢通）。交通約每 90 秒自動刷新。
+地圖標記色與雙條件「附近探測器黃／紅」判斷用同一套規則。交通約每 90 秒自動刷新。
 
 ## 技術
 
