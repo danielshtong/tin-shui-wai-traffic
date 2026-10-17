@@ -2,851 +2,986 @@
 <html lang="zh-Hant-HK">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>天水圍雙條件示範｜人流＋交通</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>聚星路現場板｜人流與交通實況</title>
+<meta name="description" content="天水圍聚星路人流警示＋附近實時交通流量互動地圖">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg: #0f172a;
-    --panel: rgba(15, 23, 42, 0.94);
-    --ink: #e2e8f0;
+    --bg0: #07111f;
+    --bg1: #0b1a2e;
+    --card: rgba(12, 24, 42, 0.88);
+    --card-solid: #0f1f35;
+    --ink: #f1f5f9;
     --muted: #94a3b8;
+    --line: rgba(148, 163, 184, 0.22);
     --accent: #38bdf8;
+    --accent2: #a78bfa;
     --green: #22c55e;
-    --yellow: #eab308;
+    --yellow: #facc15;
     --red: #ef4444;
-    --gray: #64748b;
-    --upgrade: #f97316;
+    --orange: #fb923c;
+    --shadow: 0 18px 50px rgba(0,0,0,.45);
+    --radius: 22px;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif; background: var(--bg); color: var(--ink); }
-  #map { position: absolute; inset: 0; z-index: 0; }
-  .topbar {
-    position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
-    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
-    padding: 10px 14px; background: linear-gradient(180deg, var(--panel), transparent);
+  html, body {
+    margin: 0; min-height: 100%;
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(56,189,248,.22), transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, rgba(167,139,250,.18), transparent 50%),
+      radial-gradient(800px 500px at 50% 110%, rgba(34,197,94,.12), transparent 45%),
+      linear-gradient(165deg, var(--bg0), var(--bg1) 55%, #0a1628);
+  }
+  body { padding: 14px 14px 28px; }
+  a { color: var(--accent); }
+
+  .shell {
+    max-width: 1280px; margin: 0 auto;
+    display: grid; gap: 14px;
+    grid-template-columns: 1.15fr 0.85fr;
+    grid-template-areas:
+      "hero hero"
+      "map side"
+      "chart chart"
+      "foot foot";
+  }
+  .hero { grid-area: hero; }
+  .map-card { grid-area: map; }
+  .side { grid-area: side; display: flex; flex-direction: column; gap: 14px; }
+  .chart-card { grid-area: chart; }
+  .foot { grid-area: foot; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow);
+  }
+
+  /* —— Hero alert —— */
+  .hero {
+    position: relative; overflow: hidden;
+    padding: 22px 24px 20px;
+    display: grid; gap: 16px;
+    grid-template-columns: 1.2fr 1fr;
+    align-items: stretch;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: -40% auto auto -20%;
+    width: 60%; height: 140%;
+    background: radial-gradient(circle, rgba(255,255,255,.08), transparent 65%);
     pointer-events: none;
   }
-  .topbar > * { pointer-events: auto; }
-  h1 { margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: .02em; }
-  .badge {
-    font-size: .75rem; padding: 4px 10px; border-radius: 999px;
-    background: rgba(56,189,248,.15); color: var(--accent); border: 1px solid rgba(56,189,248,.35);
+  .brand { position: relative; z-index: 1; }
+  .brand .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: .78rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--accent);
+    background: rgba(56,189,248,.12); border: 1px solid rgba(56,189,248,.3);
+    padding: 5px 12px; border-radius: 999px;
   }
-  .badge.warn { background: rgba(234,179,8,.15); color: #facc15; border-color: rgba(234,179,8,.4); }
-  .badge.err { background: rgba(239,68,68,.15); color: #f87171; border-color: rgba(239,68,68,.4); }
-  .badge.ok { background: rgba(34,197,94,.15); color: #4ade80; border-color: rgba(34,197,94,.4); }
-  .panel {
-    position: absolute; z-index: 1000; background: var(--panel);
-    border: 1px solid rgba(148,163,184,.25); border-radius: 12px;
-    backdrop-filter: blur(8px); box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  .brand h1 {
+    margin: 12px 0 6px; font-size: clamp(1.45rem, 3.2vw, 2.1rem);
+    font-weight: 900; letter-spacing: .02em; line-height: 1.15;
   }
-  .legend {
-    bottom: 24px; left: 12px; padding: 10px 12px; font-size: .8rem; min-width: 150px;
+  .brand p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.55; max-width: 42ch; }
+  .brand .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip {
+    font-size: .74rem; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted); background: rgba(255,255,255,.03);
   }
-  .legend h2, .cond1 h2, .info h2 { margin: 0 0 8px; font-size: .85rem; color: var(--accent); }
-  .legend .row { display: flex; align-items: center; gap: 8px; margin: 5px 0; color: var(--muted); }
-  .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; flex-shrink: 0; }
+  .chip.live { color: #4ade80; border-color: rgba(34,197,94,.4); background: rgba(34,197,94,.1); }
+  .chip.warn { color: #fde68a; border-color: rgba(250,204,21,.4); background: rgba(250,204,21,.1); }
+  .chip.err { color: #fca5a5; border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.1); }
+
+  .alert-board {
+    position: relative; z-index: 1;
+    border-radius: 20px; padding: 18px 18px 16px;
+    background: linear-gradient(145deg, rgba(34,197,94,.22), rgba(15,31,53,.85));
+    border: 1px solid rgba(34,197,94,.45);
+    display: flex; flex-direction: column; justify-content: space-between;
+    min-height: 168px;
+    transition: background .45s, border-color .45s, box-shadow .45s;
+  }
+  .alert-board.yellow {
+    background: linear-gradient(145deg, rgba(250,204,21,.28), rgba(15,31,53,.88));
+    border-color: rgba(250,204,21,.55);
+    box-shadow: 0 0 0 1px rgba(250,204,21,.15), 0 16px 40px rgba(250,204,21,.12);
+  }
+  .alert-board.red {
+    background: linear-gradient(145deg, rgba(239,68,68,.38), rgba(15,31,53,.9));
+    border-color: rgba(239,68,68,.65);
+    box-shadow: 0 0 0 1px rgba(239,68,68,.2), 0 18px 48px rgba(239,68,68,.25);
+    animation: pulseRed 1.7s ease-in-out infinite;
+  }
+  @keyframes pulseRed {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.012); }
+  }
+  .alert-label { font-size: .78rem; font-weight: 700; letter-spacing: .06em; opacity: .9; }
+  .alert-emoji { font-size: 1.6rem; margin-left: 6px; }
+  .people-num {
+    font-size: clamp(3.2rem, 8vw, 4.6rem); font-weight: 900;
+    line-height: 1; letter-spacing: -.03em; margin: 6px 0 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .people-unit { font-size: 1rem; font-weight: 700; opacity: .85; margin-left: 6px; }
+  .alert-msg { font-size: .95rem; font-weight: 700; margin-top: 4px; }
+  .alert-sub { font-size: .78rem; color: rgba(241,245,249,.78); margin-top: 4px; line-height: 1.4; }
+  .upgrade-tip {
+    margin-top: 10px; padding: 8px 12px; border-radius: 12px;
+    background: linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.9));
+    color: #fff; font-size: .82rem; font-weight: 800;
+    display: none; align-items: center; gap: 8px;
+    animation: pulseRed 1.4s ease-in-out infinite;
+  }
+  .upgrade-tip.show { display: flex; }
+
+  /* —— Map —— */
+  .map-card { padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 520px; }
+  .map-head {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 2px 4px;
+  }
+  .map-head h2 { margin: 0; font-size: 1rem; font-weight: 800; }
+  .map-head .meta { font-size: .75rem; color: var(--muted); }
+  #map {
+    flex: 1; min-height: 420px; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .legend-bar {
+    display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;
+    font-size: .74rem; color: var(--muted); padding: 2px 4px;
+  }
+  .dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    display: inline-block; margin-right: 5px;
+    border: 2px solid rgba(255,255,255,.85); vertical-align: -1px;
+  }
   .dot.g { background: var(--green); }
   .dot.y { background: var(--yellow); }
   .dot.r { background: var(--red); }
-  .dot.x { background: var(--gray); }
-  .info {
-    top: 56px; right: 12px; padding: 10px 12px; font-size: .78rem; max-width: 220px; color: var(--muted); line-height: 1.45;
-  }
-  .info strong { color: var(--ink); }
-  .info a { color: var(--accent); }
-  .controls { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
-  button {
-    appearance: none; border: 1px solid rgba(56,189,248,.4); background: rgba(56,189,248,.12);
-    color: var(--accent); border-radius: 8px; padding: 6px 10px; font-size: .78rem; cursor: pointer;
-  }
-  button:hover { background: rgba(56,189,248,.25); }
-  button:disabled { opacity: .5; cursor: wait; }
-  button.primary { border-color: rgba(249,115,22,.5); background: rgba(249,115,22,.18); color: #fb923c; }
-  button.primary:hover { background: rgba(249,115,22,.3); }
+  .dot.x { background: #64748b; }
+
   .leaflet-popup-content-wrapper {
-    background: #1e293b; color: var(--ink); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    background: #12253d; color: var(--ink); border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(0,0,0,.45); border: 1px solid var(--line);
   }
-  .leaflet-popup-tip { background: #1e293b; }
-  .leaflet-popup-content { margin: 12px 14px; font-size: .88rem; line-height: 1.45; min-width: 180px; }
-  .leaflet-popup-content h3 { margin: 0 0 6px; font-size: .95rem; color: #f8fafc; }
-  .leaflet-popup-content .meta { color: var(--muted); font-size: .78rem; margin-bottom: 8px; }
+  .leaflet-popup-tip { background: #12253d; }
+  .leaflet-popup-content { margin: 12px 14px; font-size: .86rem; line-height: 1.45; min-width: 180px; }
+  .leaflet-popup-content h3 { margin: 0 0 4px; font-size: .95rem; }
+  .leaflet-popup-content .meta { color: var(--muted); font-size: .75rem; margin-bottom: 8px; }
   .leaflet-popup-content table { width: 100%; border-collapse: collapse; }
   .leaflet-popup-content td { padding: 2px 0; }
-  .leaflet-popup-content td:last-child { text-align: right; font-weight: 600; }
-  .status-pill {
-    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; color: #0f172a;
+  .leaflet-popup-content td:last-child { text-align: right; font-weight: 700; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: .7rem; font-weight: 800; color: #0f172a;
   }
-  .status-pill.g { background: var(--green); }
-  .status-pill.y { background: var(--yellow); }
-  .status-pill.r { background: var(--red); color: #fff; }
-  .status-pill.x { background: var(--gray); color: #fff; }
-  .news {
-    bottom: 24px; right: 12px; padding: 10px 12px; font-size: .75rem; max-width: min(280px, 42vw);
-    max-height: 140px; overflow: auto; color: var(--muted);
-  }
-  .news h2 { margin: 0 0 6px; font-size: .82rem; color: #fbbf24; }
-  .news li { margin: 0 0 6px; }
-  .news ul { margin: 0; padding-left: 16px; }
+  .pill.g { background: var(--green); }
+  .pill.y { background: var(--yellow); }
+  .pill.r { background: var(--red); color: #fff; }
+  .pill.x { background: #64748b; color: #fff; }
 
-  /* Dual-condition banner */
-  .banner {
-    position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
-    z-index: 1100; max-width: min(560px, calc(100vw - 24px)); width: 100%;
-    padding: 12px 16px; border-radius: 12px; text-align: center;
-    font-size: .9rem; font-weight: 600; line-height: 1.4;
-    border: 1px solid transparent; box-shadow: 0 8px 28px rgba(0,0,0,.4);
-    pointer-events: none;
+  /* —— Side panels —— */
+  .panel { padding: 16px 16px 14px; }
+  .panel h2 {
+    margin: 0 0 10px; font-size: .95rem; font-weight: 800;
+    display: flex; align-items: center; gap: 8px;
   }
-  .banner.idle { background: rgba(30,41,59,.92); color: var(--muted); border-color: rgba(148,163,184,.3); }
-  .banner.soft { background: rgba(234,179,8,.18); color: #fde68a; border-color: rgba(234,179,8,.45); }
-  .banner.upgrade {
-    background: linear-gradient(135deg, rgba(249,115,22,.95), rgba(239,68,68,.92));
-    color: #fff; border-color: rgba(255,255,255,.35);
-    animation: pulse 1.6s ease-in-out infinite;
-    font-size: 1.05rem;
-  }
-  .banner .sub { display: block; font-size: .78rem; font-weight: 500; margin-top: 4px; opacity: .92; }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 8px 28px rgba(249,115,22,.35); }
-    50% { box-shadow: 0 8px 36px rgba(239,68,68,.65); }
-  }
+  .panel h2 .icon { font-size: 1.15rem; }
 
-  /* Condition 1 + IoT chart panel */
-  .cond1 {
-    top: 56px; left: 12px; padding: 12px 14px; font-size: .78rem;
-    width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - 100px); overflow: auto;
-    color: var(--muted); line-height: 1.4;
+  .detector-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow: auto; }
+  .det-row {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+    padding: 10px 12px; border-radius: 14px;
+    background: rgba(255,255,255,.03); border: 1px solid var(--line);
   }
-  .cond1 label { display: block; margin: 6px 0 2px; color: var(--ink); font-weight: 600; font-size: .75rem; }
-  .cond1 input[type="number"], .cond1 input[type="text"], .cond1 input[type="url"], .cond1 select {
-    width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(148,163,184,.35);
-    background: rgba(15,23,42,.8); color: var(--ink); font-size: .8rem;
+  .det-row .name { font-size: .8rem; font-weight: 700; }
+  .det-row .sub { font-size: .68rem; color: var(--muted); margin-top: 2px; }
+  .det-row .vals { text-align: right; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .det-row .vals strong { display: block; color: var(--ink); font-size: .82rem; }
+
+  .demo-box {
+    margin-top: 4px; padding: 12px; border-radius: 16px;
+    background: linear-gradient(135deg, rgba(167,139,250,.14), rgba(56,189,248,.1));
+    border: 1px dashed rgba(167,139,250,.45);
   }
-  .cond1 input[type="range"] { width: 100%; accent-color: var(--accent); }
-  .cond1 .row2 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
-  .cond1 .chk { display: flex; align-items: center; gap: 6px; color: var(--ink); font-weight: 500; }
-  .cond1 .chk input { accent-color: var(--accent); }
-  .cond1 .stats {
-    margin-top: 8px; padding: 8px; border-radius: 8px;
-    background: rgba(56,189,248,.08); border: 1px solid rgba(56,189,248,.2);
-    font-size: .74rem; color: var(--ink);
+  .demo-box h3 { margin: 0 0 6px; font-size: .82rem; font-weight: 800; color: #c4b5fd; }
+  .demo-box p { margin: 0 0 10px; font-size: .72rem; color: var(--muted); line-height: 1.45; }
+  .demo-box label { display: flex; justify-content: space-between; font-size: .78rem; font-weight: 700; margin-bottom: 6px; }
+  .demo-box input[type="range"] { width: 100%; accent-color: var(--accent2); }
+  .demo-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  button {
+    appearance: none; cursor: pointer;
+    border-radius: 999px; border: 1px solid var(--line);
+    background: rgba(255,255,255,.05); color: var(--ink);
+    padding: 7px 12px; font-size: .76rem; font-weight: 700;
+    font-family: inherit; transition: transform .12s, background .15s;
   }
-  .cond1 .stats span { color: var(--muted); }
-  .cond1 .hint { font-size: .7rem; margin-top: 6px; color: var(--muted); }
-  .cond1 .section-title {
-    margin: 10px 0 4px; font-size: .8rem; font-weight: 700; color: #fbbf24;
-    border-top: 1px solid rgba(148,163,184,.2); padding-top: 8px;
+  button:hover { background: rgba(255,255,255,.1); transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button.g { border-color: rgba(34,197,94,.45); color: #4ade80; background: rgba(34,197,94,.12); }
+  button.y { border-color: rgba(250,204,21,.45); color: #fde68a; background: rgba(250,204,21,.12); }
+  button.r { border-color: rgba(239,68,68,.45); color: #fca5a5; background: rgba(239,68,68,.12); }
+  button.ghost { color: var(--muted); }
+
+  .status-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
   }
-  .cond1 .section-title:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
-  .chart-wrap {
-    position: relative; height: 140px; margin-top: 8px;
-    background: rgba(15,23,42,.6); border-radius: 8px; padding: 4px;
+  .stat {
+    padding: 10px 12px; border-radius: 14px;
+    background: rgba(255,255,255,.03); border: 1px solid var(--line);
   }
+  .stat .k { font-size: .68rem; color: var(--muted); }
+  .stat .v { font-size: .95rem; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+  .thresh {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0;
+  }
+  .thresh span {
+    font-size: .7rem; padding: 4px 8px; border-radius: 999px; font-weight: 700;
+  }
+  .thresh .g { background: rgba(34,197,94,.15); color: #4ade80; }
+  .thresh .y { background: rgba(250,204,21,.15); color: #fde68a; }
+  .thresh .r { background: rgba(239,68,68,.15); color: #fca5a5; }
+
+  /* —— Chart —— */
+  .chart-card { padding: 16px 18px 14px; }
+  .chart-card .head {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+    margin-bottom: 8px;
+  }
+  .chart-card h2 { margin: 0; font-size: 1rem; font-weight: 800; }
+  .chart-wrap { position: relative; height: 220px; }
   .iot-log {
-    margin-top: 6px; max-height: 100px; overflow: auto; font-size: .68rem;
-    border: 1px solid rgba(148,163,184,.2); border-radius: 8px;
+    margin-top: 10px; max-height: 120px; overflow: auto;
+    border: 1px solid var(--line); border-radius: 12px; font-size: .72rem;
   }
   .iot-log table { width: 100%; border-collapse: collapse; }
-  .iot-log th, .iot-log td { padding: 3px 6px; text-align: left; border-bottom: 1px solid rgba(148,163,184,.15); }
-  .iot-log th { color: var(--accent); position: sticky; top: 0; background: var(--panel); }
-  .iot-log td { color: var(--ink); }
-  .iot-live-badge {
-    display: inline-block; font-size: .65rem; padding: 2px 6px; border-radius: 999px;
-    background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.35);
-    margin-left: 4px;
-  }
-  .iot-live-badge.off { background: rgba(148,163,184,.15); color: var(--muted); border-color: rgba(148,163,184,.3); }
+  .iot-log th, .iot-log td { padding: 5px 10px; text-align: left; border-bottom: 1px solid rgba(148,163,184,.12); }
+  .iot-log th { color: var(--accent); position: sticky; top: 0; background: var(--card-solid); }
+  .iot-log td { color: var(--ink); font-variant-numeric: tabular-nums; }
 
-  @media (max-width: 720px) {
-    h1 { font-size: .92rem; }
-    .info { display: none; }
-    .news { max-width: calc(100vw - 170px); max-height: 90px; font-size: .68rem; bottom: 12px; }
-    .legend { bottom: 12px; left: 8px; padding: 8px 10px; }
-    .cond1 { top: auto; bottom: 140px; left: 8px; max-height: 42vh; width: min(300px, calc(100vw - 16px)); }
-    .banner { top: 48px; font-size: .82rem; padding: 10px 12px; }
-    .banner.upgrade { font-size: .92rem; }
-    .chart-wrap { height: 110px; }
+  .foot {
+    padding: 12px 16px; font-size: .74rem; color: var(--muted); line-height: 1.5;
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+  }
+
+  @media (max-width: 960px) {
+    .shell {
+      grid-template-columns: 1fr;
+      grid-template-areas: "hero" "side" "map" "chart" "foot";
+    }
+    .hero { grid-template-columns: 1fr; }
+    .map-card { min-height: 440px; }
+    #map { min-height: 360px; }
+  }
+  @media (max-width: 520px) {
+    body { padding: 10px 10px 22px; }
+    .people-num { font-size: 3rem; }
+    .status-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
-<div id="map"></div>
-<header class="topbar">
-  <h1>天水圍｜人流＋交通雙條件示範</h1>
-  <span class="badge" id="statusBadge">載入中…</span>
-  <span class="badge" id="countBadge">—</span>
-</header>
+<div class="shell">
 
-<div id="dualBanner" class="banner idle">
-  雙條件待命：調整條件1人數／載入 CocoPi，並等交通更新
-  <span class="sub">條件1＝人數門檻｜條件2＝附近探測器黃／紅</span>
+  <!-- HERO -->
+  <section class="card hero">
+    <div class="brand">
+      <div class="kicker">🛰️ 聚星路現場板</div>
+      <h1>聚星路 · 人流與交通實況</h1>
+      <p>用 CocoPi 人數警示＋運輸署幹道探測器，一眼睇晒天水圍聚星路一帶熱鬧程度同附近路況。人數同交通齊轉黃／紅先提示「建議通知執法」。</p>
+      <div class="chips">
+        <span class="chip" id="chipPeopleSrc">人流：載入中…</span>
+        <span class="chip" id="chipTrafficSrc">交通：載入中…</span>
+        <span class="chip" id="chipMode">模式：—</span>
+      </div>
+    </div>
+    <div class="alert-board green" id="alertBoard">
+      <div>
+        <div class="alert-label">現場人流警示 <span class="alert-emoji" id="alertEmoji">🟢</span></div>
+        <div>
+          <span class="people-num" id="peopleNum">—</span>
+          <span class="people-unit">人</span>
+        </div>
+        <div class="alert-msg" id="alertMsg">等待數據…</div>
+        <div class="alert-sub" id="alertSub">≤50 綠｜51–300 黃｜≥301 紅</div>
+      </div>
+      <div class="upgrade-tip" id="upgradeTip">🚨 雙條件達標：建議通知執法（人流＋附近路況齊黃／紅）</div>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section class="card map-card">
+    <div class="map-head">
+      <h2>🗺️ 聚星路一帶交通</h2>
+      <div class="meta" id="mapMeta">聚焦朗天路／天影路探測器</div>
+    </div>
+    <div id="map"></div>
+    <div class="legend-bar">
+      <span><i class="dot g"></i>暢通</span>
+      <span><i class="dot y"></i>緩慢（佔用≥40% 或 速度≤40）</span>
+      <span><i class="dot r"></i>擠塞（佔用≥60% 或 速度≤20）</span>
+      <span><i class="dot x"></i>暫無數據</span>
+    </div>
+  </section>
+
+  <!-- SIDE -->
+  <aside class="side">
+    <section class="card panel">
+      <h2><span class="icon">📡</span> CocoPi 人流</h2>
+      <div class="status-grid">
+        <div class="stat"><div class="k">最新人數</div><div class="v" id="statPeople">—</div></div>
+        <div class="stat"><div class="k">警示等級</div><div class="v" id="statLevel">—</div></div>
+        <div class="stat"><div class="k">IoT 狀態</div><div class="v" id="statIot">—</div></div>
+        <div class="stat"><div class="k">上次更新</div><div class="v" id="statTs">—</div></div>
+      </div>
+      <div class="thresh">
+        <span class="g">🟢 ≤50 暢通</span>
+        <span class="y">🟡 51–300 注意</span>
+        <span class="r">🔴 ≥301 擠擁</span>
+      </div>
+
+      <div class="demo-box" id="demoBox">
+        <h3>🎮 課堂演示模式</h3>
+        <p id="demoHint">CocoPi people API 暫時未能連線時，可用滑桿模擬人數，照樣練雙條件升級。</p>
+        <label><span>模擬人數</span><span id="demoVal">80</span></label>
+        <input type="range" id="demoSlider" min="0" max="500" value="80" step="1">
+        <div class="demo-btns">
+          <button type="button" class="g" data-demo="20">20（綠）</button>
+          <button type="button" class="y" data-demo="120">120（黃）</button>
+          <button type="button" class="r" data-demo="320">320（紅）</button>
+          <button type="button" class="ghost" id="btnRetryIot">重試 IoT</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card panel">
+      <h2><span class="icon">🚗</span> 附近探測器</h2>
+      <p style="margin:0 0 10px;font-size:.74rem;color:var(--muted)">優先：朗天路近天福／庸園；天影路近天華／天秀／天月</p>
+      <div class="detector-list" id="detectorList"></div>
+      <div class="demo-btns" style="margin-top:10px">
+        <button type="button" class="ghost" id="btnRefreshTraffic">刷新交通</button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- CHART -->
+  <section class="card chart-card">
+    <div class="head">
+      <h2>📈 人流時間軸</h2>
+      <div class="demo-btns">
+        <button type="button" class="ghost" id="btnClearChart">清空紀錄</button>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="peopleChart"></canvas></div>
+    <div class="iot-log">
+      <table>
+        <thead><tr><th>時間</th><th>人數</th><th>等級</th><th>來源</th></tr></thead>
+        <tbody id="iotLogBody"><tr><td colspan="4" style="color:var(--muted)">暫未有更新</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="card foot">
+    <span>交通來源：<a href="https://data.gov.hk/tc-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads" target="_blank" rel="noopener">運輸署主要幹道數據</a></span>
+    <span>人流來源：CocoPi IoT <code style="font-size:.68rem">…/event/people</code></span>
+    <span>雙條件：人流黃／紅 ＋ 附近探測器黃／紅 → 升級提示</span>
+  </footer>
 </div>
 
-<aside class="panel cond1" id="cond1Panel">
-  <h2>CocoPi IoT 實時<span class="iot-live-badge off" id="iotLiveBadge">輪詢中</span></h2>
-  <p style="margin:0 0 6px;font-size:.72rem;color:#fbbf24">現為光照 light_value（人數 count 未接時用下方演示滑桿做條件1）</p>
-  <label for="iotUrl">IoT API（HTTPS）</label>
-  <input type="url" id="iotUrl" value="https://api.cocorobo.hk/iot/data/eventAPIKey/32249302422602a03f2aa4863f3c7ab6" autocomplete="off">
-  <div class="controls">
-    <button type="button" id="btnLoadIot">重新載入</button>
-    <button type="button" id="btnClearHistory">清空圖表</button>
-  </div>
-  <div class="stats" id="iotLiveStats">
-    <div>light_value：<span id="statLight">—</span></div>
-    <div>count（若有）：<span id="statIotCount">—</span></div>
-    <div>meta.id：<span id="statMetaId">—</span></div>
-    <div>時間（香港）：<span id="statIotTime">—</span></div>
-  </div>
-  <div class="chart-wrap"><canvas id="iotChart"></canvas></div>
-  <div class="iot-log">
-    <table>
-      <thead><tr><th>時間</th><th>id</th><th>數值</th></tr></thead>
-      <tbody id="iotLogBody"></tbody>
-    </table>
-  </div>
-
-  <div class="section-title">條件1 · 人數演示（獨立於光照）</div>
-  <label for="peopleCount">演示人數（count）</label>
-  <input type="range" id="peopleSlider" min="0" max="80" value="0">
-  <div class="row2">
-    <input type="number" id="peopleCount" min="0" max="999" value="0" style="width:72px">
-    <span>人</span>
-  </div>
-  <label for="peopleLevel">等級（level）</label>
-  <select id="peopleLevel">
-    <option value="green">green（綠）</option>
-    <option value="yellow">yellow（黃）</option>
-    <option value="red">red（紅）</option>
-  </select>
-  <div class="row2" style="margin-top:8px">
-    <label class="chk"><input type="checkbox" id="peopleSurge"> surge（突然聚集）</label>
-  </div>
-  <label for="countThreshold">人數門檻 N（count ≥ N 亦觸發）</label>
-  <input type="number" id="countThreshold" min="1" max="999" value="4" style="width:72px">
-  <div class="controls">
-    <button type="button" id="btnApplyDemo" class="primary">套用演示值</button>
-  </div>
-  <div class="stats" id="iotStats">
-    <div>條件1人數：<span id="statCount">—</span> 人</div>
-    <div>level：<span id="statLevel">—</span>　surge：<span id="statSurge">—</span></div>
-    <div>device：<span id="statDevice">—</span>　zone：<span id="statZone">—</span></div>
-    <div>ts：<span id="statTs">—</span></div>
-    <div>來源：<span id="statSource">演示</span></div>
-  </div>
-  <p class="hint">觸發條件1：level 為 yellow／red，或 surge＝true，或 count ≥ N（預設 4）。達標後若附近天影路／朗天路探測器有黃／紅 →「建議通知執法」。IoT 若日後帶 count／level／surge 會自動寫入條件1。</p>
-</aside>
-
-<aside class="panel legend">
-  <h2>交通圖例（條件2）</h2>
-  <div class="row"><span class="dot g"></span>暢通（綠）</div>
-  <div class="row"><span class="dot y"></span>一般（黃）</div>
-  <div class="row"><span class="dot r"></span>擠塞（紅）</div>
-  <div class="row"><span class="dot x"></span>暫無有效數據</div>
-  <div style="margin-top:6px;font-size:.68rem;color:#94a3b8;line-height:1.35">紅：佔用≥60%或車速≤20<br>黃：佔用≥40%或車速≤40</div>
-  <div class="controls">
-    <button type="button" id="btnRefresh">立即更新交通</button>
-  </div>
-</aside>
-<aside class="panel info">
-  <div><strong>地區：</strong>天水圍（及周邊幹道）</div>
-  <div><strong>交通更新：</strong><span id="lastUpdate">—</span></div>
-  <div><strong>刷新：</strong>每 90 秒</div>
-  <div style="margin-top:8px">附近探測器：天影路 <code>TDSTYR*</code>、朗天路 <code>TDSLTR*</code></div>
-  <div style="margin-top:8px">資料來源：<a href="https://data.gov.hk/tc-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads" target="_blank" rel="noopener">主要幹道及道路交通數據</a></div>
-  <div style="margin-top:4px">地圖：© OpenStreetMap</div>
-</aside>
-<aside class="panel news" id="newsPanel" hidden>
-  <h2>特別交通消息</h2>
-  <ul id="newsList"></ul>
-</aside>
 <script>
-const DETECTORS = [{"id": "TDS90060", "district": "Yuen Long", "road_tc": "元朗公路近洪天路 - 東行 (1)", "road_en": "Yuen Long Highway near Hung Tin Road - Eastbound (1)", "lat": 22.43194387, "lng": 114.0025415, "direction": "North East", "core": true}, {"id": "TDS90061", "district": "Yuen Long", "road_tc": "元朗公路近洪天路 - 東行 (2)", "road_en": "Yuen Long Highway near Hung Tin Road - Eastbound (2)", "lat": 22.43618305, "lng": 114.0061984, "direction": "North East", "core": true}, {"id": "TDS90062", "district": "Yuen Long", "road_tc": "元朗公路近唐人新村路 - 東行", "road_en": "Yuen Long Highway near Tong Yan San Tsuen Road - Eastbound", "lat": 22.43748776, "lng": 114.0103447, "direction": "East", "core": true}, {"id": "TDS90063", "district": "Yuen Long", "road_tc": "元朗公路近唐人新村交匯處 - 東行", "road_en": "Yuen Long Highway near Tong Yan San Tsuen Interchange - Eastbound", "lat": 22.43793378, "lng": 114.0138024, "direction": "East", "core": true}, {"id": "TDS91044", "district": "Yuen Long", "road_tc": "元朗公路近洪天路 - 西行 (1)", "road_en": "Yuen Long Highway near Hung Tin Road - Westbound (1)", "lat": 22.43117597, "lng": 114.002251, "direction": "South", "core": true}, {"id": "TDS91045", "district": "Yuen Long", "road_tc": "元朗公路近洪天路 - 西行 (2)", "road_en": "Yuen Long Highway near Hung Tin Road - Westbound (2)", "lat": 22.43512458, "lng": 114.0044026, "direction": "South West", "core": true}, {"id": "TDS91046", "district": "Yuen Long", "road_tc": "元朗公路近唐人新村路 - 西行", "road_en": "Yuen Long Highway near Tong Yan San Tsuen Road - Westbound", "lat": 22.43706158, "lng": 114.0086549, "direction": "West", "core": true}, {"id": "TDS91047", "district": "Yuen Long", "road_tc": "元朗公路近唐人新村交匯處 - 西行", "road_en": "Yuen Long Highway near Tong Yan San Tsuen Interchange - Westbound", "lat": 22.43794237, "lng": 114.0133653, "direction": "West", "core": true}, {"id": "TDSCPRPS10001", "district": "Yuen Long", "road_tc": "青山公路屏山段近洪天路 - 東行", "road_en": "Castle Peak Rd-Ping Shan near Hung Tin Road - Eastbound", "lat": 22.43585218, "lng": 114.0008172, "direction": "North East", "core": true}, {"id": "TDSCPRPS10002", "district": "Yuen Long", "road_tc": "青山公路屏山段近灰沙圍 - 東行", "road_en": "Castle Peak Rd-Ping Shan near Fui Sha Wai - Eastbound", "lat": 22.43880103, "lng": 114.0053986, "direction": "North East", "core": true}, {"id": "TDSCPRPS10003", "district": "Yuen Long", "road_tc": "青山公路屏山段近唐人新村遊樂場 - 東行", "road_en": "Castle Peak Rd-Ping Shan near Tong Yan San Tsuen Playground - Eastbound", "lat": 22.44100816, "lng": 114.0089222, "direction": "North East", "core": true}, {"id": "TDSCPRPS10004", "district": "Yuen Long", "road_tc": "青山公路屏山段近屏山輕鐵站 - 東行", "road_en": "Castle Peak Rd-Ping Shan near Ping Shan Light Rail Stop - Eastbound", "lat": 22.4428268, "lng": 114.0123492, "direction": "North East", "core": true}, {"id": "TDSCPRPS20001", "district": "Yuen Long", "road_tc": "青山公路屏山段近洪天路 - 西行", "road_en": "Castle Peak Rd-Ping Shan near Hung Tin Road - Westbound", "lat": 22.43673859, "lng": 114.0021275, "direction": "South West", "core": true}, {"id": "TDSCPRPS20002", "district": "Yuen Long", "road_tc": "青山公路屏山段近灰沙圍 - 西行", "road_en": "Castle Peak Rd-Ping Shan near Fui Sha Wai - Westbound", "lat": 22.43904527, "lng": 114.0057966, "direction": "South West", "core": true}, {"id": "TDSCPRPS20003", "district": "Yuen Long", "road_tc": "青山公路屏山段近唐人新村遊樂場 - 西行", "road_en": "Castle Peak Rd-Ping Shan near Tong Yan San Tsuen Playground - Westbound", "lat": 22.4412886, "lng": 114.0093979, "direction": "South West", "core": true}, {"id": "TDSCPRPS20004", "district": "Yuen Long", "road_tc": "青山公路屏山段近朗天路 - 西行", "road_en": "Castle Peak Rd-Ping Shan near Long Tin Road - Westbound", "lat": 22.44380592, "lng": 114.0161562, "direction": "West", "core": true}, {"id": "TDSLTR10001", "district": "Yuen Long", "road_tc": "朗天路近天福路 - 南行", "road_en": "Long Tin Road near Tin Fuk Road - Southbound", "lat": 22.45102316, "lng": 114.0091724, "direction": "South", "core": true}, {"id": "TDSLTR10002", "district": "Yuen Long", "road_tc": "朗天路近庸園路 - 南行", "road_en": "Long Tin Road near Yung Yuen Road - Southbound", "lat": 22.44728821, "lng": 114.0127228, "direction": "East", "core": true}, {"id": "TDSLTR10003", "district": "Yuen Long", "road_tc": "朗天路近水邊圍交匯處 - 南行", "road_en": "Long Tin Road near Shui Pin Wai Interchange - Southbound", "lat": 22.44458304, "lng": 114.0166604, "direction": "South", "core": true}, {"id": "TDSLTR10004", "district": "Yuen Long", "road_tc": "朗天路近唐人新村交匯處 - 南行", "road_en": "Long Tin Road near Tong Yan San Tsuen Interchange - Southbound", "lat": 22.44153951, "lng": 114.0163822, "direction": "South", "core": true}, {"id": "TDSLTR20001", "district": "Yuen Long", "road_tc": "朗天路近天福路 - 北行", "road_en": "Long Tin Road near Tin Fuk Road - Northbound", "lat": 22.4502649, "lng": 114.0094551, "direction": "North", "core": true}, {"id": "TDSLTR20002", "district": "Yuen Long", "road_tc": "朗天路近庸園路 - 北行", "road_en": "Long Tin Road near Yung Yuen Road - Northbound", "lat": 22.44790115, "lng": 114.0116146, "direction": "North West", "core": true}, {"id": "TDSLTR20003", "district": "Yuen Long", "road_tc": "朗天路近水邊圍交匯處 - 北行", "road_en": "Long Tin Road near Shui Pin Wai Interchange - Northbound", "lat": 22.44505257, "lng": 114.0166113, "direction": "North", "core": true}, {"id": "TDSLTR20004", "district": "Yuen Long", "road_tc": "朗天路近唐人新村交匯處 - 北行", "road_en": "Long Tin Road near Tong Yan San Tsuen Interchange - Northbound", "lat": 22.4410969, "lng": 114.0162662, "direction": "North", "core": true}, {"id": "TDSTYR10001", "district": "Yuen Long", "road_tc": "天影路近天華路 - 北行", "road_en": "Tin Ying Road near Tin Wah Road - Northbound", "lat": 22.4623572, "lng": 113.9933802, "direction": "North East", "core": true}, {"id": "TDSTYR10002", "district": "Yuen Long", "road_tc": "天影路近天秀路 - 北行", "road_en": "Tin Ying Road near Tin Sau Road - Northbound", "lat": 22.46837449, "lng": 113.9960735, "direction": "North East", "core": true}, {"id": "TDSTYR10003", "district": "Yuen Long", "road_tc": "天影路近天月路 - 北行", "road_en": "Tin Ying Road near Tin Yuet Road - Northbound", "lat": 22.47060618, "lng": 113.9971296, "direction": "North East", "core": true}, {"id": "TDSTYR20001", "district": "Yuen Long", "road_tc": "天影路近天秀路 - 南行", "road_en": "Tin Ying Road near Tin Sau Road - Southbound", "lat": 22.46659458, "lng": 113.9952499, "direction": "South West", "core": true}, {"id": "TDSTYR20002", "district": "Yuen Long", "road_tc": "天影路近天月路 - 南行", "road_en": "Tin Ying Road near Tin Yuet Road - Southbound", "lat": 22.47096761, "lng": 113.9973235, "direction": "South West", "core": true}, {"id": "TDSTYR20003", "district": "Yuen Long", "road_tc": "天影路近流浮山消防局暨救護站 - 西行", "road_en": "Tin Ying Road near Lau Fau Shan Fire Station Cum Ambulance Depot - Westbound", "lat": 22.47159559, "lng": 114.0017631, "direction": "North West", "core": true}, {"id": "AID10110", "district": "Yuen Long", "road_tc": "港深西部公路近廈村路 - 北行", "road_en": "Kong Sham Western Highway near Ha Tsuen Road - Northbound", "lat": 22.44333828, "lng": 113.9848565, "direction": "North West", "core": false}, {"id": "AID10111", "district": "Yuen Long", "road_tc": "港深西部公路近新圍污水處理廠 - 北行", "road_en": "Kong Sham Western Highway near San Wai Sewage Treatment Plant - Northbound", "lat": 22.44679305, "lng": 113.9816264, "direction": "North West", "core": false}, {"id": "AID10211", "district": "Yuen Long", "road_tc": "港深西部公路近新圍污水處理廠 - 南行", "road_en": "Kong Sham Western Highway near San Wai Sewage Treatment Plant - Southbound", "lat": 22.44608072, "lng": 113.9825115, "direction": "South East", "core": false}, {"id": "AID10212", "district": "Yuen Long", "road_tc": "港深西部公路近廈村路 - 南行", "road_en": "Kong Sham Western Highway near Ha Tsuen Road - Southbound", "lat": 22.44369017, "lng": 113.9846131, "direction": "South East", "core": false}];
+(function () {
+  'use strict';
 
-const XML_URL = 'https://resource.data.one.gov.hk/td/traffic-detectors/rawSpeedVol-all.xml';
-const NEWS_URL = 'https://www.td.gov.hk/tc/special_news/trafficnews.xml';
-const REFRESH_MS = 90000;
-const IOT_POLL_MS = 2500;
-const IOT_HISTORY_MAX = 80;
-const DEFAULT_IOT_URL = 'https://api.cocorobo.hk/iot/data/eventAPIKey/32249302422602a03f2aa4863f3c7ab6';
-/** Nearby = all TDSTYR* (Tin Ying Rd) and TDSLTR* (Long Tin Rd) on the map */
-const NEARBY_PREFIXES = ['TDSTYR', 'TDSLTR'];
+  const MAP_CENTER = [22.459, 114.006];
+  const MAP_ZOOM = 14;
+  const XML_URL = 'https://resource.data.one.gov.hk/td/traffic-detectors/rawSpeedVol-all.xml';
+  const PEOPLE_URLS = [
+    'https://api.cocorobo.hk/iot/data/apikey/ee81c3a89c1eabb4db97b8ad698bd572e79ae26c4e950ebe4fdb8a3024871b07/event/people',
+    'http://api.cocorobo.hk/iot/data/apikey/ee81c3a89c1eabb4db97b8ad698bd572e79ae26c4e950ebe4fdb8a3024871b07/event/people'
+  ];
+  const IOT_POLL_MS = 2500;
+  const TRAFFIC_POLL_MS = 90000;
+  const HISTORY_MAX = 60;
 
-function classify(avgSpeed, avgOcc, hasData) {
-  // Room-agreed: Red occ≥60% OR speed≤20; Yellow occ≥40% OR speed≤40; else green
-  if (!hasData || avgSpeed == null) return { key: 'x', label: '暫無數據', color: '#64748b' };
-  if (avgOcc >= 60 || avgSpeed <= 20) return { key: 'r', label: '擠塞', color: '#ef4444' };
-  if (avgOcc >= 40 || avgSpeed <= 40) return { key: 'y', label: '一般', color: '#eab308' };
-  return { key: 'g', label: '暢通', color: '#22c55e' };
-}
+  const PRIORITY_IDS = [
+    'TDSLTR10001', 'TDSLTR20001', 'TDSLTR10002', 'TDSLTR20002',
+    'TDSTYR10001', 'TDSTYR10002', 'TDSTYR20001', 'TDSTYR10003', 'TDSTYR20002'
+  ];
 
-function isNearbyId(id) {
-  return NEARBY_PREFIXES.some(p => id.startsWith(p));
-}
+  const DETECTORS = [
+    {id:'TDSLTR10001', road_tc:'朗天路近天福路 - 南行', lat:22.45102316, lng:114.0091724, tip:'最近聚星路'},
+    {id:'TDSLTR20001', road_tc:'朗天路近天福路 - 北行', lat:22.4502649, lng:114.0094551, tip:'最近聚星路'},
+    {id:'TDSLTR10002', road_tc:'朗天路近庸園路 - 南行', lat:22.44728821, lng:114.0127228, tip:'次近'},
+    {id:'TDSLTR20002', road_tc:'朗天路近庸園路 - 北行', lat:22.44790115, lng:114.0116146, tip:'次近'},
+    {id:'TDSTYR10001', road_tc:'天影路近天華路 - 北行', lat:22.4623572, lng:113.9933802, tip:'天影路'},
+    {id:'TDSTYR10002', road_tc:'天影路近天秀路 - 北行', lat:22.46837449, lng:113.9960735, tip:'天影路'},
+    {id:'TDSTYR20001', road_tc:'天影路近天秀路 - 南行', lat:22.46659458, lng:113.9952499, tip:'天影路'},
+    {id:'TDSTYR10003', road_tc:'天影路近天月路 - 北行', lat:22.47060618, lng:113.9971296, tip:'天影路'},
+    {id:'TDSTYR20002', road_tc:'天影路近天月路 - 南行', lat:22.47096761, lng:113.9973235, tip:'天影路'}
+  ];
 
-const map = L.map('map', { zoomControl: true }).setView([22.460, 114.000], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-}).addTo(map);
+  const state = {
+    people: null,
+    peopleLevel: 'green',
+    peopleSource: 'none',
+    iotOk: false,
+    iotLastId: null,
+    trafficById: {},
+    nearbyWorst: 'x',
+    history: [],
+    demoForce: false
+  };
 
-const markers = {};
-const live = {};
+  const el = {
+    alertBoard: document.getElementById('alertBoard'),
+    alertEmoji: document.getElementById('alertEmoji'),
+    peopleNum: document.getElementById('peopleNum'),
+    alertMsg: document.getElementById('alertMsg'),
+    alertSub: document.getElementById('alertSub'),
+    upgradeTip: document.getElementById('upgradeTip'),
+    chipPeopleSrc: document.getElementById('chipPeopleSrc'),
+    chipTrafficSrc: document.getElementById('chipTrafficSrc'),
+    chipMode: document.getElementById('chipMode'),
+    statPeople: document.getElementById('statPeople'),
+    statLevel: document.getElementById('statLevel'),
+    statIot: document.getElementById('statIot'),
+    statTs: document.getElementById('statTs'),
+    detectorList: document.getElementById('detectorList'),
+    demoSlider: document.getElementById('demoSlider'),
+    demoVal: document.getElementById('demoVal'),
+    demoHint: document.getElementById('demoHint'),
+    iotLogBody: document.getElementById('iotLogBody'),
+    mapMeta: document.getElementById('mapMeta')
+  };
 
-/** Condition 1 state */
-const peopleState = {
-  count: 0,
-  level: 'green',
-  surge: false,
-  ts: null,
-  device_id: null,
-  zone: null,
-  source: '演示'
-};
+  // —— Map ——
+  const map = L.map('map', { zoomControl: true, attributionControl: true })
+    .setView(MAP_CENTER, MAP_ZOOM);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap &copy; CARTO'
+  }).addTo(map);
 
-
-
-
-function makeIcon(color) {
-  return L.divIcon({
+  // 聚星路 spot marker
+  const starIcon = L.divIcon({
     className: '',
-    html: `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45)"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    popupAnchor: [0, -10]
+    html: '<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#a78bfa);border:3px solid #fff;box-shadow:0 0 0 6px rgba(56,189,248,.25),0 8px 18px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:14px">📍</div>',
+    iconSize: [28, 28], iconAnchor: [14, 14]
   });
-}
+  L.marker(MAP_CENTER, { icon: starIcon, zIndexOffset: 500 })
+    .addTo(map)
+    .bindPopup('<h3>聚星路一帶</h3><div class="meta">現場人流監測焦點</div>');
 
-function fmtNum(n, digits) {
-  if (n == null || Number.isNaN(n)) return '—';
-  return Number(n).toFixed(digits);
-}
-
-function escapeHtml(s) {
-  return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
-function popupHtml(det, data) {
-  const c = classify(data?.avgSpeed, data?.avgOcc, !!data?.hasData);
-  const nearby = isNearbyId(det.id) ? ' · <span style="color:#38bdf8">附近（條件2）</span>' : '';
-  const lanes = (data?.lanes || []).map(l =>
-    `<tr><td>${escapeHtml(l.id)}</td><td>${fmtNum(l.speed,0)} km/h · 佔${fmtNum(l.occ,0)}% · ${fmtNum(l.vol,0)}架</td></tr>`
-  ).join('');
-  return `
-    <h3>${escapeHtml(det.road_tc)}</h3>
-    <div class="meta">${escapeHtml(det.id)} · ${escapeHtml(det.direction || '')}${nearby}</div>
-    <div style="margin-bottom:8px"><span class="status-pill ${c.key}">${c.label}</span></div>
-    <table>
-      <tr><td>平均車速</td><td>${fmtNum(data?.avgSpeed, 1)} km/h</td></tr>
-      <tr><td>平均佔用率</td><td>${fmtNum(data?.avgOcc, 1)}%</td></tr>
-      <tr><td>總流量（各線）</td><td>${data?.totalVol != null ? data.totalVol : '—'} 架次</td></tr>
-      <tr><td>數據時段</td><td>${escapeHtml(data?.period || '—')}</td></tr>
-    </table>
-    ${lanes ? `<div style="margin-top:8px;font-size:.75rem;color:#94a3b8"><strong>各行車線</strong></div><table style="font-size:.75rem">${lanes}</table>` : ''}
-  `;
-}
-
-DETECTORS.forEach(det => {
-  const m = L.marker([det.lat, det.lng], { icon: makeIcon('#64748b') });
-  m.bindPopup(() => popupHtml(det, live[det.id]));
-  m.addTo(map);
-  markers[det.id] = m;
-});
-
-function parseXml(text) {
-  const doc = new DOMParser().parseFromString(text, 'application/xml');
-  if (doc.querySelector('parsererror')) throw new Error('XML 解析失敗');
-  const date = doc.querySelector('date')?.textContent?.trim() || '';
-  const periods = [...doc.querySelectorAll('period')];
-  const period = periods[periods.length - 1];
-  if (!period) throw new Error('找不到時段資料');
-  const from = period.querySelector('period_from')?.textContent?.trim() || '';
-  const to = period.querySelector('period_to')?.textContent?.trim() || '';
-  const periodLabel = date ? `${date} ${from}–${to}` : `${from}–${to}`;
-  const byId = {};
-  period.querySelectorAll('detector').forEach(node => {
-    const id = node.querySelector('detector_id')?.textContent?.trim();
-    if (!id) return;
-    const lanes = [];
-    let speedSum = 0, occSum = 0, volSum = 0, n = 0;
-    node.querySelectorAll('lane').forEach(lane => {
-      const valid = lane.querySelector('valid')?.textContent?.trim();
-      const speed = parseFloat(lane.querySelector('speed')?.textContent);
-      const occ = parseFloat(lane.querySelector('occupancy')?.textContent);
-      const vol = parseFloat(lane.querySelector('volume')?.textContent);
-      const lid = lane.querySelector('lane_id')?.textContent?.trim() || '—';
-      lanes.push({ id: lid, speed: Number.isFinite(speed) ? speed : null, occ: Number.isFinite(occ) ? occ : null, vol: Number.isFinite(vol) ? vol : null, valid });
-      if (valid === 'Y' && Number.isFinite(speed)) {
-        speedSum += speed;
-        occSum += Number.isFinite(occ) ? occ : 0;
-        volSum += Number.isFinite(vol) ? vol : 0;
-        n += 1;
-      }
-    });
-    byId[id] = {
-      hasData: n > 0,
-      avgSpeed: n ? speedSum / n : null,
-      avgOcc: n ? occSum / n : null,
-      totalVol: n ? volSum : null,
-      lanes,
-      period: periodLabel
-    };
+  const markers = {};
+  DETECTORS.forEach(function (d) {
+    const m = L.circleMarker([d.lat, d.lng], {
+      radius: 9, weight: 2, color: '#fff', fillColor: '#64748b', fillOpacity: 0.95
+    }).addTo(map);
+    m.bindPopup(popupHtml(d, null));
+    markers[d.id] = m;
   });
-  return { periodLabel, byId };
-}
 
-function applyLive(parsed) {
-  Object.keys(live).forEach(k => delete live[k]);
-  let withData = 0;
-  DETECTORS.forEach(det => {
-    const data = parsed.byId[det.id] || { hasData: false, avgSpeed: null, avgOcc: null, totalVol: null, lanes: [], period: parsed.periodLabel };
-    live[det.id] = data;
-    if (data.hasData) withData += 1;
-    const c = classify(data.avgSpeed, data.avgOcc, data.hasData);
-    markers[det.id].setIcon(makeIcon(c.color));
-  });
-  document.getElementById('lastUpdate').textContent = parsed.periodLabel || '—';
-  document.getElementById('countBadge').textContent = `${withData}/${DETECTORS.length} 個探測器有數據`;
-  const badge = document.getElementById('statusBadge');
-  badge.textContent = '交通已更新';
-  badge.className = 'badge';
-  evaluateDual();
-}
-
-async function fetchTraffic() {
-  const btn = document.getElementById('btnRefresh');
-  btn.disabled = true;
-  const badge = document.getElementById('statusBadge');
-  badge.textContent = '更新中…';
-  badge.className = 'badge';
-  try {
-    const res = await fetch(XML_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    const parsed = parseXml(text);
-    applyLive(parsed);
-  } catch (err) {
-    console.error(err);
-    badge.textContent = '更新失敗：' + (err.message || err);
-    badge.className = 'badge err';
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function fetchNews() {
-  try {
-    const res = await fetch(NEWS_URL, { cache: 'no-store' });
-    if (!res.ok) return;
-    const text = await res.text();
-    const doc = new DOMParser().parseFromString(text, 'application/xml');
-    const msgs = [...doc.querySelectorAll('message')];
-    const keywords = ['天水圍', '元朗', '朗天', '天影', '屏山', '洪水橋', '屯門', '新田', '青山公路', '港深西部', '深圳灣'];
-    let entries = msgs.map(m => {
-      const loc = (m.querySelector('LOCATION_CN')?.textContent || '').trim();
-      const content = (m.querySelector('CONTENT_CN')?.textContent || '').trim();
-      const heading = (m.querySelector('INCIDENT_HEADING_CN')?.textContent || '').trim();
-      const t = [loc, content || heading].filter(Boolean).join('：').replace(/\s+/g, ' ').slice(0, 140);
-      return t;
-    }).filter(Boolean);
-    let filtered = entries.filter(t => keywords.some(k => t.includes(k)));
-    if (!filtered.length) filtered = entries.slice(0, 3);
-    const panel = document.getElementById('newsPanel');
-    const list = document.getElementById('newsList');
-    if (!filtered.length) { panel.hidden = true; return; }
-    list.innerHTML = filtered.slice(0, 5).map(t => `<li>${escapeHtml(t)}</li>`).join('');
-    panel.hidden = false;
-  } catch (e) {
-    console.warn('news', e);
-  }
-}
-
-/* ——— Condition 1 + dual gate ——— */
-
-function getThreshold() {
-  const n = parseInt(document.getElementById('countThreshold').value, 10);
-  return Number.isFinite(n) && n > 0 ? n : 15;
-}
-
-function condition1Triggered() {
-  const level = String(peopleState.level || 'green').toLowerCase();
-  const byLevel = level === 'yellow' || level === 'red';
-  const bySurge = !!peopleState.surge;
-  const byCount = Number(peopleState.count) >= getThreshold();
-  return { triggered: byLevel || bySurge || byCount, byLevel, bySurge, byCount };
-}
-
-function nearbyTrafficStatus() {
-  const congested = [];
-  DETECTORS.filter(d => isNearbyId(d.id)).forEach(det => {
-    const data = live[det.id];
-    if (!data) return;
-    const c = classify(data.avgSpeed, data.avgOcc, data.hasData);
-    if (c.key === 'y' || c.key === 'r') {
-      congested.push({ id: det.id, road: det.road_tc, key: c.key, label: c.label });
+  function popupHtml(d, reading) {
+    const level = reading ? trafficLevel(reading) : 'x';
+    const label = levelLabel(level);
+    let body = '<h3>' + esc(d.road_tc) + '</h3>';
+    body += '<div class="meta">' + esc(d.id) + (d.tip ? ' · ' + esc(d.tip) : '') + '</div>';
+    body += '<span class="pill ' + level + '">' + label + '</span>';
+    if (reading) {
+      body += '<table style="margin-top:8px">';
+      body += '<tr><td>速度</td><td>' + fmtNum(reading.speed) + ' km/h</td></tr>';
+      body += '<tr><td>流量</td><td>' + fmtNum(reading.volume) + '</td></tr>';
+      body += '<tr><td>佔用</td><td>' + fmtNum(reading.occupancy) + ' %</td></tr>';
+      body += '</table>';
+    } else {
+      body += '<p style="margin:8px 0 0;color:#94a3b8;font-size:.78rem">暫未有讀數</p>';
     }
-  });
-  return {
-    hasCongestion: congested.length > 0,
-    congested,
-    checked: DETECTORS.filter(d => isNearbyId(d.id)).length
-  };
-}
-
-function evaluateDual() {
-  const c1 = condition1Triggered();
-  const c2 = nearbyTrafficStatus();
-  const banner = document.getElementById('dualBanner');
-  const redCount = c2.congested.filter(x => x.key === 'r').length;
-  const yellowCount = c2.congested.filter(x => x.key === 'y').length;
-  const trafficSummary = c2.hasCongestion
-    ? `附近 ${c2.congested.length} 個探測器黃／紅（紅 ${redCount}／黃 ${yellowCount}）`
-    : `附近 ${c2.checked} 個探測器未見黃／紅`;
-
-  if (c1.triggered && c2.hasCongestion) {
-    const reasons = [];
-    if (c1.byLevel) reasons.push(`level=${peopleState.level}`);
-    if (c1.bySurge) reasons.push('surge');
-    if (c1.byCount) reasons.push(`count ${peopleState.count} ≥ ${getThreshold()}`);
-    banner.className = 'banner upgrade';
-    banner.innerHTML = `建議通知執法<span class="sub">條件1：${escapeHtml(reasons.join('、'))}（${peopleState.count} 人）｜條件2：${escapeHtml(trafficSummary)}</span>`;
-  } else if (c1.triggered && !c2.hasCongestion) {
-    banner.className = 'banner soft';
-    banner.innerHTML = `人數達門檻，交通仍暢通<span class="sub">條件1已觸發（${peopleState.count} 人）｜${escapeHtml(trafficSummary)} — 暫不升級</span>`;
-  } else if (!c1.triggered && c2.hasCongestion) {
-    banner.className = 'banner soft';
-    banner.innerHTML = `交通擠塞，人數未達門檻<span class="sub">條件1未觸發｜${escapeHtml(trafficSummary)} — 暫不升級</span>`;
-  } else {
-    banner.className = 'banner idle';
-    banner.innerHTML = `雙條件待命<span class="sub">條件1未觸發｜${escapeHtml(trafficSummary)}</span>`;
+    return body;
   }
-}
 
-function syncPeopleUiFromState() {
-  document.getElementById('peopleCount').value = peopleState.count;
-  document.getElementById('peopleSlider').value = Math.min(80, Math.max(0, Number(peopleState.count) || 0));
-  document.getElementById('peopleLevel').value = ['green','yellow','red'].includes(peopleState.level) ? peopleState.level : 'green';
-  document.getElementById('peopleSurge').checked = !!peopleState.surge;
-  document.getElementById('statCount').textContent = String(peopleState.count);
-  document.getElementById('statLevel').textContent = peopleState.level || '—';
-  document.getElementById('statSurge').textContent = peopleState.surge ? 'true' : 'false';
-  document.getElementById('statDevice').textContent = peopleState.device_id || '—';
-  document.getElementById('statZone').textContent = peopleState.zone || '—';
-  document.getElementById('statTs').textContent = peopleState.ts || '—';
-  document.getElementById('statSource').textContent = peopleState.source || '演示';
-}
-
-function applyPeoplePayload(obj, source) {
-  const count = Number(obj.count);
-  peopleState.count = Number.isFinite(count) ? count : 0;
-  const level = String(obj.level || 'green').toLowerCase();
-  peopleState.level = ['green','yellow','red'].includes(level) ? level : 'green';
-  peopleState.surge = obj.surge === true || obj.surge === 'true' || obj.surge === 1 || obj.surge === '1';
-  peopleState.ts = obj.ts != null ? String(obj.ts) : new Date().toISOString();
-  peopleState.device_id = obj.device_id != null ? String(obj.device_id) : null;
-  peopleState.zone = obj.zone != null ? String(obj.zone) : null;
-  peopleState.source = source;
-  syncPeopleUiFromState();
-  evaluateDual();
-}
-
-function readDemoControls() {
-  const count = parseInt(document.getElementById('peopleCount').value, 10);
-  applyPeoplePayload({
-    count: Number.isFinite(count) ? count : 0,
-    level: document.getElementById('peopleLevel').value,
-    surge: document.getElementById('peopleSurge').checked,
-    ts: new Date().toLocaleString('zh-HK', { hour12: false })
-  }, '演示');
-}
-
-let iotPollTimer = null;
-let lastMetaId = null;
-const iotHistory = []; // {id, tsSec, timeLabel, light, count, raw}
-
-function hkTimeFromUnix(sec) {
-  if (sec == null || !Number.isFinite(Number(sec))) return '—';
-  const d = new Date(Number(sec) * 1000);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong', hour12: false });
-}
-
-function hkTimeNowLabel() {
-  return new Date().toLocaleTimeString('zh-HK', { timeZone: 'Asia/Hong_Kong', hour12: false });
-}
-
-function extractIotRecord(payload) {
-  // CocoPi: { data: [ { light_value, count?, level?, ... meta:{id,timestamp} } ] }
-  // Also accept flat people JSON: { count, level, surge, ts, device_id, zone }
-  if (!payload || typeof payload !== 'object') return null;
-  let row = null;
-  if (Array.isArray(payload.data) && payload.data.length) {
-    row = payload.data[0];
-  } else if (payload.light_value != null || payload.count != null || payload.meta) {
-    row = payload;
-  } else if (payload.count != null || payload.level != null) {
-    // flat people payload
-    return {
-      metaId: payload.meta?.id ?? payload.id ?? null,
-      tsSec: payload.meta?.timestamp ?? null,
-      light: null,
-      count: payload.count != null ? Number(payload.count) : null,
-      level: payload.level,
-      surge: payload.surge,
-      ts: payload.ts,
-      device_id: payload.device_id,
-      zone: payload.zone,
-      flatPeople: true,
-      numericFields: {}
-    };
-  } else {
-    return null;
+  function levelColor(level) {
+    if (level === 'green') return '#22c55e';
+    if (level === 'yellow') return '#facc15';
+    if (level === 'red') return '#ef4444';
+    return '#64748b';
   }
-  const meta = row.meta || {};
-  const numericFields = {};
-  for (const [k, v] of Object.entries(row)) {
-    if (k === 'meta') continue;
+  function levelLabel(level) {
+    if (level === 'green') return '暢通';
+    if (level === 'yellow') return '緩慢';
+    if (level === 'red') return '擠塞';
+    return '無數據';
+  }
+  function peopleLevelOf(n) {
+    if (n == null || isNaN(n)) return 'green';
+    if (n >= 301) return 'red';
+    if (n >= 51) return 'yellow';
+    return 'green'; // ≤50
+  }
+  function peopleMsg(level, n) {
+    if (n == null) return '等待數據…';
+    if (level === 'red') return '🔴 人流擠擁！請留意現場';
+    if (level === 'yellow') return '🟡 人流偏多，持續觀察';
+    return '🟢 人流暢通，氣氛輕鬆';
+  }
+  function trafficLevel(r) {
+    if (!r) return 'x';
+    const occ = num(r.occupancy);
+    const spd = num(r.speed);
+    if ((occ != null && occ >= 60) || (spd != null && spd <= 20)) return 'red';
+    if ((occ != null && occ >= 40) || (spd != null && spd <= 40)) return 'yellow';
+    if (occ != null || spd != null) return 'green';
+    return 'x';
+  }
+  function worse(a, b) {
+    const rank = { red: 3, yellow: 2, green: 1, x: 0 };
+    return (rank[a] || 0) >= (rank[b] || 0) ? a : b;
+  }
+  function num(v) {
+    if (v == null || v === '') return null;
     const n = Number(v);
-    if (Number.isFinite(n)) numericFields[k] = n;
+    return isFinite(n) ? n : null;
   }
-  const light = row.light_value != null ? Number(row.light_value) : (numericFields.light_value ?? null);
-  const count = row.count != null ? Number(row.count) : (numericFields.count ?? null);
-  return {
-    metaId: meta.id != null ? meta.id : null,
-    tsSec: meta.timestamp != null ? Number(meta.timestamp) : null,
-    light: Number.isFinite(light) ? light : null,
-    count: Number.isFinite(count) ? count : null,
-    level: row.level,
-    surge: row.surge,
-    ts: row.ts,
-    device_id: row.device_id,
-    zone: row.zone,
-    flatPeople: false,
-    numericFields
-  };
-}
+  function fmtNum(v) {
+    const n = num(v);
+    return n == null ? '—' : (Math.round(n * 10) / 10);
+  }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function hkTime(d) {
+    try {
+      return new Intl.DateTimeFormat('zh-HK', {
+        timeZone: 'Asia/Hong_Kong', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      }).format(d instanceof Date ? d : new Date(d));
+    } catch (e) {
+      const x = d instanceof Date ? d : new Date(d);
+      return x.toLocaleTimeString();
+    }
+  }
 
-let iotChart = null;
-function ensureChart() {
-  if (iotChart) return iotChart;
-  const ctx = document.getElementById('iotChart');
-  if (!ctx || typeof Chart === 'undefined') return null;
-  iotChart = new Chart(ctx, {
+  // —— Chart ——
+  const chart = new Chart(document.getElementById('peopleChart'), {
     type: 'line',
     data: {
       labels: [],
-      datasets: [
-        {
-          label: 'light_value',
-          data: [],
-          borderColor: '#fbbf24',
-          backgroundColor: 'rgba(251,191,36,.15)',
-          tension: 0.25,
-          pointRadius: 2,
-          borderWidth: 2,
-          yAxisID: 'y'
-        },
-        {
-          label: 'count',
-          data: [],
-          borderColor: '#38bdf8',
-          backgroundColor: 'rgba(56,189,248,.12)',
-          tension: 0.25,
-          pointRadius: 2,
-          borderWidth: 2,
-          yAxisID: 'y',
-          hidden: true
-        }
-      ]
+      datasets: [{
+        label: '人數',
+        data: [],
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56,189,248,.18)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointBackgroundColor: '#38bdf8',
+        borderWidth: 2
+      }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 200 },
       plugins: {
-        legend: { labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } } },
-        tooltip: { mode: 'index', intersect: false }
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel: function (ctx) {
+              const lv = peopleLevelOf(ctx.parsed.y);
+              return '等級：' + levelLabel(lv === 'green' ? 'green' : lv);
+            }
+          }
+        }
       },
       scales: {
         x: {
-          ticks: { color: '#64748b', maxRotation: 0, autoSkip: true, maxTicksLimit: 6, font: { size: 9 } },
+          ticks: { color: '#94a3b8', maxTicksLimit: 8, font: { size: 10 } },
           grid: { color: 'rgba(148,163,184,.12)' }
         },
         y: {
-          ticks: { color: '#94a3b8', font: { size: 9 } },
-          grid: { color: 'rgba(148,163,184,.12)' }
+          beginAtZero: true,
+          ticks: { color: '#94a3b8', font: { size: 10 } },
+          grid: { color: 'rgba(148,163,184,.12)' },
+          title: { display: true, text: '人數', color: '#94a3b8', font: { size: 11 } }
         }
       }
     }
   });
-  return iotChart;
-}
 
-function refreshChartAndLog() {
-  const chart = ensureChart();
-  if (chart) {
-    chart.data.labels = iotHistory.map(h => h.timeLabel);
-    chart.data.datasets[0].data = iotHistory.map(h => h.light);
-    const hasCount = iotHistory.some(h => h.count != null);
-    chart.data.datasets[1].data = iotHistory.map(h => h.count);
-    chart.data.datasets[1].hidden = !hasCount;
+  function pushHistory(count, source, ts) {
+    const when = ts ? new Date(ts) : new Date();
+    const level = peopleLevelOf(count);
+    state.history.push({ t: when, count: count, level: level, source: source });
+    if (state.history.length > HISTORY_MAX) state.history.shift();
+
+    chart.data.labels = state.history.map(function (h) { return hkTime(h.t); });
+    chart.data.datasets[0].data = state.history.map(function (h) { return h.count; });
+    // colour last point by level
+    const lastLv = level;
+    chart.data.datasets[0].borderColor = levelColor(lastLv);
+    chart.data.datasets[0].pointBackgroundColor = levelColor(lastLv);
+    chart.data.datasets[0].backgroundColor = levelColor(lastLv).replace(')', ',.18)').replace('rgb', 'rgba').replace('#22c55e', 'rgba(34,197,94,.18)').replace('#facc15', 'rgba(250,204,21,.18)').replace('#ef4444', 'rgba(239,68,68,.18)').replace('#38bdf8', 'rgba(56,189,248,.18)');
+    if (lastLv === 'green') chart.data.datasets[0].backgroundColor = 'rgba(34,197,94,.18)';
+    else if (lastLv === 'yellow') chart.data.datasets[0].backgroundColor = 'rgba(250,204,21,.18)';
+    else if (lastLv === 'red') chart.data.datasets[0].backgroundColor = 'rgba(239,68,68,.18)';
     chart.update('none');
+
+    renderLog();
   }
-  const tbody = document.getElementById('iotLogBody');
-  if (tbody) {
-    const rows = [...iotHistory].slice().reverse().slice(0, 20);
-    tbody.innerHTML = rows.map(h => {
-      const vals = [];
-      if (h.light != null) vals.push('light=' + h.light);
-      if (h.count != null) vals.push('count=' + h.count);
-      return `<tr><td>${escapeHtml(h.timeFull || h.timeLabel)}</td><td>${escapeHtml(String(h.id ?? '—'))}</td><td>${escapeHtml(vals.join(' · ') || '—')}</td></tr>`;
+
+  function renderLog() {
+    const rows = state.history.slice().reverse().slice(0, 20);
+    if (!rows.length) {
+      el.iotLogBody.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">暫未有更新</td></tr>';
+      return;
+    }
+    el.iotLogBody.innerHTML = rows.map(function (h) {
+      const lv = h.level === 'red' ? '🔴 紅' : h.level === 'yellow' ? '🟡 黃' : '🟢 綠';
+      const src = h.source === 'iot' ? 'CocoPi' : h.source === 'demo' ? '演示' : h.source;
+      return '<tr><td>' + esc(hkTime(h.t)) + '</td><td>' + esc(h.count) + '</td><td>' + lv + '</td><td>' + esc(src) + '</td></tr>';
     }).join('');
   }
-}
 
-function appendIotHistory(rec) {
-  const timeFull = rec.tsSec != null ? hkTimeFromUnix(rec.tsSec) : new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong', hour12: false });
-  const timeLabel = rec.tsSec != null
-    ? new Date(rec.tsSec * 1000).toLocaleTimeString('zh-HK', { timeZone: 'Asia/Hong_Kong', hour12: false })
-    : hkTimeNowLabel();
-  iotHistory.push({
-    id: rec.metaId,
-    tsSec: rec.tsSec,
-    timeLabel,
-    timeFull,
-    light: rec.light,
-    count: rec.count
+  // —— People UI ——
+  function setPeople(count, source, meta) {
+    state.people = count;
+    state.peopleLevel = peopleLevelOf(count);
+    state.peopleSource = source;
+
+    el.peopleNum.textContent = count == null ? '—' : String(Math.round(count));
+    el.statPeople.textContent = count == null ? '—' : String(Math.round(count));
+    const lvText = state.peopleLevel === 'red' ? '🔴 擠擁' : state.peopleLevel === 'yellow' ? '🟡 注意' : '🟢 暢通';
+    el.statLevel.textContent = lvText;
+    el.alertMsg.textContent = peopleMsg(state.peopleLevel, count);
+    el.alertEmoji.textContent = state.peopleLevel === 'red' ? '🔴' : state.peopleLevel === 'yellow' ? '🟡' : '🟢';
+
+    el.alertBoard.classList.remove('green', 'yellow', 'red');
+    el.alertBoard.classList.add(state.peopleLevel);
+
+    if (meta && meta.ts) el.statTs.textContent = hkTime(meta.ts);
+    else if (count != null) el.statTs.textContent = hkTime(new Date());
+
+    if (source === 'iot') {
+      el.chipPeopleSrc.textContent = '人流：CocoPi 實時';
+      el.chipPeopleSrc.className = 'chip live';
+      el.chipMode.textContent = '模式：實時 IoT';
+      el.chipMode.className = 'chip live';
+      el.statIot.textContent = '✅ 已連線';
+      el.demoHint.textContent = '已收到 CocoPi 數據；滑桿仍可臨時覆寫做課堂對比。';
+    } else if (source === 'demo') {
+      el.chipPeopleSrc.textContent = '人流：演示模式';
+      el.chipPeopleSrc.className = 'chip warn';
+      el.chipMode.textContent = '模式：課堂演示';
+      el.chipMode.className = 'chip warn';
+      if (!state.iotOk) el.statIot.textContent = '⚠️ API 離線';
+    }
+
+    updateUpgrade();
+  }
+
+  function updateUpgrade() {
+    const peopleHot = state.peopleLevel === 'yellow' || state.peopleLevel === 'red';
+    const trafficHot = state.nearbyWorst === 'yellow' || state.nearbyWorst === 'red';
+    if (peopleHot && trafficHot) {
+      el.upgradeTip.classList.add('show');
+      el.alertSub.textContent = '人流「' + levelLabel(state.peopleLevel) + '」＋附近交通「' + levelLabel(state.nearbyWorst) + '」';
+    } else {
+      el.upgradeTip.classList.remove('show');
+      el.alertSub.textContent = '≤50 綠｜51–300 黃｜≥301 紅　·　雙條件齊黃／紅先升級';
+    }
+  }
+
+  // —— Detectors list + map colours ——
+  function renderDetectors() {
+    let worst = 'x';
+    el.detectorList.innerHTML = DETECTORS.map(function (d) {
+      const r = state.trafficById[d.id];
+      const lv = trafficLevel(r);
+      worst = worse(lv, worst);
+      const speed = r ? fmtNum(r.speed) + ' km/h' : '—';
+      const occ = r ? fmtNum(r.occupancy) + '%' : '—';
+      return '<div class="det-row">' +
+        '<i class="dot ' + (lv === 'green' ? 'g' : lv === 'yellow' ? 'y' : lv === 'red' ? 'r' : 'x') + '"></i>' +
+        '<div><div class="name">' + esc(d.road_tc) + '</div><div class="sub">' + esc(d.id) + (d.tip ? ' · ' + esc(d.tip) : '') + '</div></div>' +
+        '<div class="vals"><strong>' + levelLabel(lv) + '</strong>' + speed + ' · ' + occ + '</div>' +
+        '</div>';
+    }).join('');
+    state.nearbyWorst = worst;
+
+    DETECTORS.forEach(function (d) {
+      const r = state.trafficById[d.id];
+      const lv = trafficLevel(r);
+      const m = markers[d.id];
+      if (!m) return;
+      m.setStyle({ fillColor: levelColor(lv === 'x' ? 'x' : lv), color: '#fff' });
+      m.setPopupContent(popupHtml(d, r));
+    });
+
+    const hotN = DETECTORS.filter(function (d) {
+      const lv = trafficLevel(state.trafficById[d.id]);
+      return lv === 'yellow' || lv === 'red';
+    }).length;
+    el.mapMeta.textContent = '附近 ' + DETECTORS.length + ' 個探測器 · 黃／紅 ' + hotN + ' 個 · 最差：' + levelLabel(worst);
+    updateUpgrade();
+  }
+
+  // —— Traffic XML ——
+  async function loadTraffic() {
+    el.chipTrafficSrc.textContent = '交通：更新中…';
+    try {
+      const res = await fetch(XML_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const text = await res.text();
+      const doc = new DOMParser().parseFromString(text, 'application/xml');
+      const nodes = doc.querySelectorAll('detector, Detector, raw_data, segment');
+      // TD XML structure: often <detector_id> / nested under periods
+      const byId = {};
+      // Flexible parse: look for elements with detector id attributes or child tags
+      const all = doc.getElementsByTagName('*');
+      // Common format from TD: <jtis_speed_list> ... or detector blocks
+      // Try known pattern from prior app: <detector> with attributes or children
+      let parsed = 0;
+
+      // Pattern A: <detector id="..."> <speed> <volume> <occupancy>
+      Array.prototype.forEach.call(doc.querySelectorAll('detector'), function (node) {
+        const id = node.getAttribute('id') || node.getAttribute('detector_id') ||
+          (node.querySelector('detector_id, id') && node.querySelector('detector_id, id').textContent.trim());
+        if (!id) return;
+        const speed = textOf(node, ['speed', 'Speed', 'avg_speed']);
+        const volume = textOf(node, ['volume', 'Volume', 'vol']);
+        const occupancy = textOf(node, ['occupancy', 'Occupancy', 'occ']);
+        byId[id] = { speed: speed, volume: volume, occupancy: occupancy };
+        parsed++;
+      });
+
+      // Pattern B: TD raw_speed_volume_list — <detector><detector_id>…</detector_id><lanes><lane><speed>…
+      if (parsed === 0) {
+        Array.prototype.forEach.call(doc.querySelectorAll('detector'), function (det) {
+          const idNode = det.querySelector('detector_id');
+          const id = idNode ? idNode.textContent.trim() : '';
+          if (!id) return;
+          const lanes = det.querySelectorAll('lane');
+          let speedSum = 0, occSum = 0, volSum = 0, nSp = 0, nOcc = 0, nVol = 0;
+          Array.prototype.forEach.call(lanes.length ? lanes : [det], function (lane) {
+            const sp = num(textOf(lane, ['speed', 'Speed', 'avg_speed']));
+            const oc = num(textOf(lane, ['occupancy', 'Occupancy', 'occ']));
+            const vo = num(textOf(lane, ['volume', 'Volume', 'vol']));
+            if (sp != null) { speedSum += sp; nSp++; }
+            if (oc != null) { occSum += oc; nOcc++; }
+            if (vo != null) { volSum += vo; nVol++; }
+          });
+          byId[id] = {
+            speed: nSp ? (speedSum / nSp) : null,
+            volume: nVol ? volSum : null,
+            occupancy: nOcc ? (occSum / nOcc) : null
+          };
+          parsed++;
+        });
+      }
+
+      // Pattern C: attributes on any element named like data
+      if (parsed === 0) {
+        Array.prototype.forEach.call(all, function (node) {
+          const id = node.getAttribute('detector_id') || node.getAttribute('Detector_ID');
+          if (!id) return;
+          byId[id] = {
+            speed: node.getAttribute('speed') || node.getAttribute('Speed'),
+            volume: node.getAttribute('volume') || node.getAttribute('Volume'),
+            occupancy: node.getAttribute('occupancy') || node.getAttribute('Occupancy')
+          };
+          parsed++;
+        });
+      }
+
+      state.trafficById = byId;
+      let hit = 0;
+      PRIORITY_IDS.forEach(function (id) { if (byId[id]) hit++; });
+      el.chipTrafficSrc.textContent = '交通：已更新（命中 ' + hit + '/' + PRIORITY_IDS.length + '）';
+      el.chipTrafficSrc.className = hit ? 'chip live' : 'chip warn';
+      renderDetectors();
+    } catch (err) {
+      console.warn('traffic load failed', err);
+      el.chipTrafficSrc.textContent = '交通：載入失敗';
+      el.chipTrafficSrc.className = 'chip err';
+      renderDetectors();
+    }
+  }
+
+  function textOf(parent, names) {
+    for (let i = 0; i < names.length; i++) {
+      const n = parent.querySelector(names[i]);
+      if (n && n.textContent.trim() !== '') return n.textContent.trim();
+    }
+    return null;
+  }
+
+  // —— CocoPi people ——
+  function extractPeople(payload) {
+    if (payload == null) return null;
+    let obj = payload;
+    if (typeof payload === 'string') {
+      try { obj = JSON.parse(payload); } catch (e) { return null; }
+    }
+    // Prefer data array latest
+    let candidates = [];
+    if (Array.isArray(obj)) candidates = obj;
+    else if (obj && Array.isArray(obj.data)) candidates = obj.data;
+    else if (obj && typeof obj === 'object') candidates = [obj];
+
+    if (!candidates.length) return null;
+    // pick last / highest meta.id
+    let best = candidates[0];
+    let bestId = -1;
+    candidates.forEach(function (c) {
+      const id = c && c.meta && num(c.meta.id);
+      if (id != null && id >= bestId) { bestId = id; best = c; }
+    });
+    if (bestId < 0) best = candidates[candidates.length - 1];
+
+    const keys = ['people', 'count', 'value', 'light_value', 'People', 'Count', 'num', 'number'];
+    let value = null;
+    for (let i = 0; i < keys.length; i++) {
+      if (best[keys[i]] != null && best[keys[i]] !== '') {
+        value = num(best[keys[i]]);
+        if (value != null) break;
+      }
+    }
+    // nested
+    if (value == null && best.data) {
+      for (let i = 0; i < keys.length; i++) {
+        if (best.data[keys[i]] != null) {
+          value = num(best.data[keys[i]]);
+          if (value != null) break;
+        }
+      }
+    }
+    // any numeric field fallback
+    if (value == null && typeof best === 'object') {
+      for (const k of Object.keys(best)) {
+        if (k === 'meta') continue;
+        const n = num(best[k]);
+        if (n != null) { value = n; break; }
+      }
+    }
+
+    let ts = null;
+    if (best.meta && best.meta.timestamp != null) {
+      const raw = num(best.meta.timestamp);
+      // heuristic: if too small for ms, treat as sec; if huge weird, try as-is
+      if (raw != null) {
+        ts = raw > 1e12 ? raw : raw > 1e9 ? raw * 1000 : Date.now();
+      }
+    }
+    const mid = best.meta && best.meta.id != null ? String(best.meta.id) : null;
+    return { value: value, ts: ts, id: mid, raw: best };
+  }
+
+  async function pollPeople() {
+    if (state.demoForce) return;
+    let lastErr = null;
+    for (let i = 0; i < PEOPLE_URLS.length; i++) {
+      const url = PEOPLE_URLS[i];
+      try {
+        const res = await fetch(url, { cache: 'no-store', mode: 'cors' });
+        if (!res.ok) { lastErr = 'HTTP ' + res.status; continue; }
+        const json = await res.json();
+        const extracted = extractPeople(json);
+        if (!extracted || extracted.value == null) {
+          lastErr = '無可用人數欄位';
+          continue;
+        }
+        // de-dupe by meta.id
+        if (extracted.id && extracted.id === state.iotLastId) {
+          state.iotOk = true;
+          el.statIot.textContent = '✅ 已連線';
+          return;
+        }
+        state.iotLastId = extracted.id;
+        state.iotOk = true;
+        setPeople(extracted.value, 'iot', { ts: extracted.ts || Date.now() });
+        pushHistory(extracted.value, 'iot', extracted.ts || Date.now());
+        return;
+      } catch (err) {
+        lastErr = err && err.message ? err.message : String(err);
+      }
+    }
+    // failed
+    state.iotOk = false;
+    el.statIot.textContent = '❌ ' + (lastErr || '離線');
+    el.chipPeopleSrc.textContent = '人流：API 離線';
+    el.chipPeopleSrc.className = 'chip err';
+    if (state.peopleSource !== 'demo') {
+      el.chipMode.textContent = '模式：課堂演示';
+      el.chipMode.className = 'chip warn';
+      el.demoHint.textContent = 'CocoPi people API 暫時 404／無法連線。請用滑桿模擬人數，API 恢復後會自動接上。';
+      // seed demo once if no people yet
+      if (state.people == null) {
+        applyDemo(Number(el.demoSlider.value), false);
+      }
+    }
+  }
+
+  function applyDemo(n, record) {
+    state.demoForce = true;
+    setPeople(n, 'demo', { ts: Date.now() });
+    if (record !== false) pushHistory(n, 'demo', Date.now());
+    el.demoVal.textContent = String(n);
+  }
+
+  // —— Events ——
+  el.demoSlider.addEventListener('input', function () {
+    el.demoVal.textContent = el.demoSlider.value;
   });
-  while (iotHistory.length > IOT_HISTORY_MAX) iotHistory.shift();
-  refreshChartAndLog();
-}
+  el.demoSlider.addEventListener('change', function () {
+    applyDemo(Number(el.demoSlider.value), true);
+  });
+  document.querySelectorAll('[data-demo]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const n = Number(btn.getAttribute('data-demo'));
+      el.demoSlider.value = String(n);
+      applyDemo(n, true);
+    });
+  });
+  document.getElementById('btnRetryIot').addEventListener('click', function () {
+    state.demoForce = false;
+    state.iotLastId = null;
+    el.statIot.textContent = '重試中…';
+    pollPeople();
+  });
+  document.getElementById('btnRefreshTraffic').addEventListener('click', function () {
+    loadTraffic();
+  });
+  document.getElementById('btnClearChart').addEventListener('click', function () {
+    state.history = [];
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.update();
+    renderLog();
+  });
 
-function updateIotLiveUi(rec) {
-  document.getElementById('statLight').textContent = rec.light != null ? String(rec.light) : '—';
-  document.getElementById('statIotCount').textContent = rec.count != null ? String(rec.count) : '—';
-  document.getElementById('statMetaId').textContent = rec.metaId != null ? String(rec.metaId) : '—';
-  document.getElementById('statIotTime').textContent = rec.tsSec != null ? hkTimeFromUnix(rec.tsSec) : '—';
-  const badge = document.getElementById('iotLiveBadge');
-  if (badge) {
-    badge.textContent = '已連接';
-    badge.classList.remove('off');
-  }
-}
+  // —— Boot ——
+  renderDetectors();
+  applyDemo(Number(el.demoSlider.value), true);
+  loadTraffic();
+  pollPeople();
+  setInterval(pollPeople, IOT_POLL_MS);
+  setInterval(loadTraffic, TRAFFIC_POLL_MS);
 
-function maybeApplyPeopleFromIot(rec) {
-  // Only push into Condition1 when people fields exist (not light-only)
-  const hasPeople = rec.count != null || rec.level != null || rec.surge != null || rec.flatPeople;
-  if (!hasPeople) return;
-  applyPeoplePayload({
-    count: rec.count != null ? rec.count : peopleState.count,
-    level: rec.level != null ? rec.level : peopleState.level,
-    surge: rec.surge != null ? rec.surge : peopleState.surge,
-    ts: rec.ts != null ? rec.ts : (rec.tsSec != null ? hkTimeFromUnix(rec.tsSec) : new Date().toISOString()),
-    device_id: rec.device_id,
-    zone: rec.zone
-  }, 'IoT');
-}
-
-function processIotPayload(payload) {
-  const rec = extractIotRecord(payload);
-  if (!rec) return;
-  updateIotLiveUi(rec);
-  const isNew = rec.metaId != null && rec.metaId !== lastMetaId;
-  const lightChanged = iotHistory.length && rec.light != null && iotHistory[iotHistory.length - 1].light !== rec.light;
-  const tsChanged = iotHistory.length && rec.tsSec != null && iotHistory[iotHistory.length - 1].tsSec !== rec.tsSec;
-  if (isNew || (rec.metaId == null && (lightChanged || tsChanged || !iotHistory.length))) {
-    if (rec.metaId != null) lastMetaId = rec.metaId;
-    appendIotHistory(rec);
-  } else if (!iotHistory.length) {
-    // first sample even if id null
-    appendIotHistory(rec);
-    if (rec.metaId != null) lastMetaId = rec.metaId;
-  }
-  maybeApplyPeopleFromIot(rec);
-}
-
-async function fetchIotOnce(url, { noisy } = {}) {
-  try {
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    processIotPayload(data);
-    return true;
-  } catch (err) {
-    console.warn('iot', err);
-    const badge = document.getElementById('iotLiveBadge');
-    if (badge) {
-      badge.textContent = '失敗';
-      badge.classList.add('off');
-    }
-    if (noisy) {
-      const b = document.getElementById('statusBadge');
-      b.textContent = 'IoT 失敗：' + (err.message || err);
-      b.className = 'badge err';
-    }
-    return false;
-  }
-}
-
-function startIotPolling(url) {
-  if (iotPollTimer) clearInterval(iotPollTimer);
-  iotPollTimer = setInterval(() => fetchIotOnce(url), IOT_POLL_MS);
-}
-
-async function loadIot({ noisy } = { noisy: true }) {
-  const url = (document.getElementById('iotUrl').value || '').trim() || DEFAULT_IOT_URL;
-  document.getElementById('iotUrl').value = url;
-  const btn = document.getElementById('btnLoadIot');
-  if (btn) btn.disabled = true;
-  await fetchIotOnce(url, { noisy });
-  startIotPolling(url);
-  if (btn) btn.disabled = false;
-}
-
-function clearIotHistory() {
-  iotHistory.length = 0;
-  lastMetaId = null;
-  refreshChartAndLog();
-}
-
-
-// Demo UI wiring (people Condition1 — independent of light IoT)
-const slider = document.getElementById('peopleSlider');
-const countInput = document.getElementById('peopleCount');
-slider.addEventListener('input', () => {
-  countInput.value = slider.value;
-  const n = parseInt(slider.value, 10) || 0;
-  if (n >= 7) document.getElementById('peopleLevel').value = 'red';
-  else if (n >= 4) document.getElementById('peopleLevel').value = 'yellow';
-  else document.getElementById('peopleLevel').value = 'green';
-  readDemoControls();
-});
-countInput.addEventListener('change', () => {
-  slider.value = Math.min(80, Math.max(0, parseInt(countInput.value, 10) || 0));
-  readDemoControls();
-});
-document.getElementById('peopleLevel').addEventListener('change', readDemoControls);
-document.getElementById('peopleSurge').addEventListener('change', readDemoControls);
-document.getElementById('countThreshold').addEventListener('change', evaluateDual);
-document.getElementById('btnApplyDemo').addEventListener('click', () => {
-  readDemoControls();
-});
-document.getElementById('btnLoadIot').addEventListener('click', () => loadIot({ noisy: true }));
-document.getElementById('btnClearHistory').addEventListener('click', clearIotHistory);
-
-
-document.getElementById('btnRefresh').addEventListener('click', () => { fetchTraffic(); fetchNews(); });
-fetchTraffic();
-fetchNews();
-syncPeopleUiFromState();
-evaluateDual();
-ensureChart();
-loadIot({ noisy: false });
-setInterval(fetchTraffic, REFRESH_MS);
-setInterval(fetchNews, REFRESH_MS * 2);
+  // fix leaflet size after layout
+  setTimeout(function () { map.invalidateSize(); }, 200);
+  window.addEventListener('resize', function () { map.invalidateSize(); });
+})();
 </script>
 </body>
 </html>
