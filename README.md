@@ -11,7 +11,7 @@
 | 🟡 黃 | 51–300 |
 | 🔴 紅 | ≥ 301 |
 
-CocoPi API：`…/iot/data/apikey/…/event/people`（若 404／離線會自動進**課堂演示模式**，可用滑桿模擬人數）。
+CocoPi API：`https://api.cocorobo.hk/iot/data/eventAPIKey/01b2720b44a677545bcdc4627929f54c`（欄位 **`no_of_people`**）。離線時自動進**課堂演示模式**（滑桿）。
 
 ## 交通（條件 2）
 - 地圖中心：22.459, 114.006（聚星路一帶）

@@ -355,7 +355,7 @@
 
       <div class="demo-box" id="demoBox">
         <h3>🎮 課堂演示模式</h3>
-        <p id="demoHint">CocoPi people API 暫時未能連線時，可用滑桿模擬人數，照樣練雙條件升級。</p>
+        <p id="demoHint">實時讀取 CocoPi <code>no_of_people</code>；離線時可用滑桿模擬人數練雙條件。</p>
         <label><span>模擬人數</span><span id="demoVal">80</span></label>
         <input type="range" id="demoSlider" min="0" max="500" value="80" step="1">
         <div class="demo-btns">
@@ -396,7 +396,7 @@
 
   <footer class="card foot">
     <span>交通來源：<a href="https://data.gov.hk/tc-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads" target="_blank" rel="noopener">運輸署主要幹道數據</a></span>
-    <span>人流來源：CocoPi IoT <code style="font-size:.68rem">…/event/people</code></span>
+    <span>人流來源：CocoPi IoT <code style="font-size:.68rem">…/eventAPIKey/…</code>（欄位 no_of_people）</span>
     <span>雙條件：人流黃／紅 ＋ 附近探測器黃／紅 → 升級提示</span>
   </footer>
 </div>
@@ -409,8 +409,7 @@
   const MAP_ZOOM = 14;
   const XML_URL = 'https://resource.data.one.gov.hk/td/traffic-detectors/rawSpeedVol-all.xml';
   const PEOPLE_URLS = [
-    'https://api.cocorobo.hk/iot/data/apikey/ee81c3a89c1eabb4db97b8ad698bd572e79ae26c4e950ebe4fdb8a3024871b07/event/people',
-    'http://api.cocorobo.hk/iot/data/apikey/ee81c3a89c1eabb4db97b8ad698bd572e79ae26c4e950ebe4fdb8a3024871b07/event/people'
+    'https://api.cocorobo.hk/iot/data/eventAPIKey/01b2720b44a677545bcdc4627929f54c'
   ];
   const IOT_POLL_MS = 2500;
   const TRAFFIC_POLL_MS = 90000;
@@ -849,7 +848,7 @@
     });
     if (bestId < 0) best = candidates[candidates.length - 1];
 
-    const keys = ['people', 'count', 'value', 'light_value', 'People', 'Count', 'num', 'number'];
+    const keys = ['no_of_people', 'people', 'count', 'value', 'light_value', 'People', 'Count', 'num', 'number'];
     let value = null;
     for (let i = 0; i < keys.length; i++) {
       if (best[keys[i]] != null && best[keys[i]] !== '') {
@@ -909,6 +908,7 @@
         }
         state.iotLastId = extracted.id;
         state.iotOk = true;
+        state.demoForce = false;
         setPeople(extracted.value, 'iot', { ts: extracted.ts || Date.now() });
         pushHistory(extracted.value, 'iot', extracted.ts || Date.now());
         return;
@@ -972,9 +972,18 @@
 
   // —— Boot ——
   renderDetectors();
-  applyDemo(Number(el.demoSlider.value), true);
+  // Show slider value as provisional until IoT responds (do not lock demoForce)
+  el.demoVal.textContent = el.demoSlider.value;
+  setPeople(null, 'none', null);
+  el.statIot.textContent = '連線中…';
+  el.chipPeopleSrc.textContent = '人流：連線 CocoPi…';
+  el.chipMode.textContent = '模式：載入中';
   loadTraffic();
-  pollPeople();
+  pollPeople().then(function () {
+    if (!state.iotOk && state.people == null) {
+      applyDemo(Number(el.demoSlider.value), true);
+    }
+  });
   setInterval(pollPeople, IOT_POLL_MS);
   setInterval(loadTraffic, TRAFFIC_POLL_MS);
 
