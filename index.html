@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>聚星路現場板｜人流與交通實況</title>
-<meta name="description" content="天水圍聚星路：CocoPi 人臉／人數實時圖表 ＋ 運輸署公開資料幹道地圖" />
+<title>聚星路現場板｜A／B 區人流與交通實況</title>
+<meta name="description" content="天水圍聚星路：CocoPi A／B 區人臉人數 ＋ 運輸署公開資料幹道地圖" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
@@ -13,20 +13,15 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg0: #070b16;
-    --bg1: #0f1730;
+    --bg0: #070b16; --bg1: #0f1730;
     --card: rgba(18, 28, 52, 0.72);
     --card-border: rgba(120, 160, 255, 0.18);
-    --text: #eef3ff;
-    --muted: #9aadc8;
-    --green: #22d38a;
-    --green-glow: rgba(34, 211, 138, 0.55);
-    --red: #ff4d6d;
-    --red-glow: rgba(255, 77, 109, 0.55);
-    --yellow: #ffc857;
-    --accent: #6ea8ff;
-    --radius: 22px;
-    --shadow: 0 18px 50px rgba(0,0,0,.45);
+    --text: #eef3ff; --muted: #9aadc8;
+    --green: #22d38a; --green-glow: rgba(34, 211, 138, 0.55);
+    --red: #ff4d6d; --red-glow: rgba(255, 77, 109, 0.55);
+    --yellow: #ffc857; --accent: #6ea8ff;
+    --zone-a: #6ea8ff; --zone-b: #c084fc;
+    --radius: 22px; --shadow: 0 18px 50px rgba(0,0,0,.45);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; min-height: 100%; }
@@ -35,14 +30,13 @@
     color: var(--text);
     background:
       radial-gradient(1200px 600px at 10% -10%, rgba(80,120,255,.28), transparent 55%),
-      radial-gradient(900px 500px at 95% 0%, rgba(34,211,138,.16), transparent 50%),
+      radial-gradient(900px 500px at 95% 0%, rgba(192,132,252,.18), transparent 50%),
       radial-gradient(700px 400px at 70% 100%, rgba(255,77,109,.12), transparent 55%),
       linear-gradient(165deg, var(--bg0), var(--bg1) 55%, #0a1224);
     background-attachment: fixed;
   }
-  .wrap { max-width: 1280px; margin: 0 auto; padding: 20px 18px 40px; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 20px 18px 40px; }
 
-  /* Header */
   .topbar {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
     gap: 12px; margin-bottom: 18px;
@@ -50,7 +44,7 @@
   .brand { display: flex; align-items: center; gap: 14px; }
   .logo {
     width: 52px; height: 52px; border-radius: 16px;
-    background: linear-gradient(145deg, #3d7eff, #22d38a);
+    background: linear-gradient(145deg, #3d7eff, #c084fc);
     display: grid; place-items: center; font-size: 26px;
     box-shadow: 0 8px 24px rgba(61,126,255,.4);
   }
@@ -67,13 +61,12 @@
   .chip.warn .dot { background: var(--yellow); }
   .chip.err .dot { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
 
-  /* Grid */
-  .grid {
+  .layout {
     display: grid;
-    grid-template-columns: 1.05fr 1.2fr;
+    grid-template-columns: 1.15fr 1fr;
     gap: 16px;
   }
-  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 1040px) { .layout { grid-template-columns: 1fr; } }
 
   .card {
     background: var(--card);
@@ -83,55 +76,73 @@
     box-shadow: var(--shadow);
     overflow: hidden;
   }
-  .card-pad { padding: 20px 22px; }
+  .card-pad { padding: 18px 20px; }
   .card-title {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
   .card-title h2 { margin: 0; font-size: 1.05rem; font-weight: 800; }
   .card-title span { font-size: .75rem; color: var(--muted); }
 
-  /* Hero signal */
-  .hero {
-    position: relative;
-    min-height: 340px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    text-align: center;
-    padding: 28px 20px 24px;
-    background:
-      radial-gradient(ellipse at 50% 30%, rgba(255,255,255,.06), transparent 60%),
-      linear-gradient(180deg, rgba(255,255,255,.03), transparent);
+  /* Dual zone row */
+  .zones {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
   }
-  .hero.mode-green { --sig: var(--green); --sig-glow: var(--green-glow); }
-  .hero.mode-red { --sig: var(--red); --sig-glow: var(--red-glow); }
-  .hero.mode-idle { --sig: #6b7a99; --sig-glow: rgba(107,122,153,.35); }
+  @media (max-width: 720px) { .zones { grid-template-columns: 1fr; } }
 
-  .orb-wrap { position: relative; width: 168px; height: 168px; margin-bottom: 8px; }
+  .zone {
+    position: relative;
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    background: rgba(10, 16, 32, 0.55);
+    padding: 20px 16px 18px;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 300px;
+  }
+  .zone.mode-green { --sig: var(--green); --sig-glow: var(--green-glow); }
+  .zone.mode-red { --sig: var(--red); --sig-glow: var(--red-glow); }
+  .zone.mode-idle { --sig: #6b7a99; --sig-glow: rgba(107,122,153,.35); }
+
+  .zone-badge {
+    position: absolute; top: 12px; left: 12px;
+    font-size: .78rem; font-weight: 900; letter-spacing: .06em;
+    padding: 5px 12px; border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .zone-a .zone-badge {
+    color: #dbeafe; background: rgba(110,168,255,.18); border-color: rgba(110,168,255,.45);
+  }
+  .zone-b .zone-badge {
+    color: #f3e8ff; background: rgba(192,132,252,.18); border-color: rgba(192,132,252,.45);
+  }
+  .zone-field {
+    position: absolute; top: 14px; right: 12px;
+    font-size: .68rem; color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+
+  .orb-wrap { position: relative; width: 120px; height: 120px; margin: 28px 0 6px; }
   .orb {
-    width: 168px; height: 168px; border-radius: 50%;
+    width: 120px; height: 120px; border-radius: 50%;
     background:
       radial-gradient(circle at 35% 28%, rgba(255,255,255,.85), transparent 28%),
       radial-gradient(circle at 50% 55%, var(--sig), #0a0f1a 78%);
     box-shadow:
-      0 0 0 10px rgba(255,255,255,.04),
-      0 0 40px var(--sig-glow),
-      0 0 90px var(--sig-glow),
-      inset 0 -18px 40px rgba(0,0,0,.35);
+      0 0 0 8px rgba(255,255,255,.04),
+      0 0 32px var(--sig-glow),
+      0 0 70px var(--sig-glow),
+      inset 0 -14px 30px rgba(0,0,0,.35);
     animation: pulse 2.2s ease-in-out infinite;
     position: relative; z-index: 1;
   }
-  .orb::after {
-    content: ""; position: absolute; inset: 18%;
-    border-radius: 50%;
-    border: 2px solid rgba(255,255,255,.12);
-  }
   .rings {
-    position: absolute; inset: -18px; border-radius: 50%;
+    position: absolute; inset: -14px; border-radius: 50%;
     border: 2px solid color-mix(in srgb, var(--sig) 45%, transparent);
-    animation: ring 2.4s ease-out infinite;
-    pointer-events: none;
+    animation: ring 2.4s ease-out infinite; pointer-events: none;
   }
-  .rings:nth-child(2) { animation-delay: .8s; inset: -28px; opacity: .6; }
+  .rings:nth-child(2) { animation-delay: .8s; inset: -22px; opacity: .55; }
   @keyframes pulse {
     0%, 100% { transform: scale(1); filter: brightness(1); }
     50% { transform: scale(1.04); filter: brightness(1.12); }
@@ -142,36 +153,77 @@
   }
 
   .count-big {
-    font-size: clamp(3.2rem, 8vw, 4.6rem);
+    font-size: clamp(2.4rem, 6vw, 3.4rem);
     font-weight: 900; line-height: 1; letter-spacing: -.03em;
-    margin: 6px 0 2px;
-    text-shadow: 0 0 28px var(--sig-glow);
+    margin: 4px 0 2px;
+    text-shadow: 0 0 22px var(--sig-glow);
   }
-  .count-unit { font-size: 1rem; font-weight: 700; color: var(--muted); margin-left: 6px; }
+  .count-unit { font-size: .9rem; font-weight: 700; color: var(--muted); margin-left: 4px; }
   .status-line {
-    margin-top: 8px; font-size: 1.15rem; font-weight: 800;
-    color: var(--sig);
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 8px 16px; border-radius: 999px;
+    margin-top: 8px; font-size: .95rem; font-weight: 800; color: var(--sig);
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px;
     background: color-mix(in srgb, var(--sig) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--sig) 35%, transparent);
   }
-  .rule-hint { margin-top: 12px; color: var(--muted); font-size: .82rem; }
-  .meta-row {
-    display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px;
-    margin-top: 16px; font-size: .78rem; color: var(--muted);
+  .zone-meta {
+    margin-top: 12px; font-size: .72rem; color: var(--muted); line-height: 1.55;
   }
-  .meta-row strong { color: var(--text); font-weight: 700; }
+  .zone-meta strong { color: var(--text); }
+  .json-mini {
+    margin-top: 10px; width: 100%;
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    padding: 8px 10px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: .65rem; color: #b8d0ff;
+    white-space: pre-wrap; word-break: break-all;
+    max-height: 72px; overflow: auto; text-align: left;
+  }
 
-  /* Map */
-  #map {
-    height: 360px; width: 100%;
-    border-radius: 0 0 var(--radius) var(--radius);
-    background: #0b1326;
+  /* Dual-condition banner */
+  .dual-banner {
+    display: none;
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,77,109,.45);
+    background: linear-gradient(135deg, rgba(255,77,109,.22), rgba(255,200,87,.12));
+    box-shadow: 0 0 28px rgba(255,77,109,.25);
+    font-weight: 800; font-size: .95rem;
+    align-items: center; gap: 10px;
+    animation: bannerPulse 1.8s ease-in-out infinite;
   }
-  .leaflet-container { font: inherit; }
+  .dual-banner.show { display: flex; }
+  .dual-banner .ico { font-size: 1.4rem; }
+  .dual-banner .sub { font-weight: 500; font-size: .78rem; color: #ffd0d8; margin-top: 2px; }
+  @keyframes bannerPulse {
+    0%, 100% { box-shadow: 0 0 18px rgba(255,77,109,.2); }
+    50% { box-shadow: 0 0 36px rgba(255,77,109,.45); }
+  }
+
+  .rule-hint { margin-top: 10px; color: var(--muted); font-size: .78rem; text-align: center; }
+
+  .chart-box { position: relative; height: 260px; padding: 4px 8px 12px; }
+
+  .demo {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    font-size: .8rem;
+  }
+  .demo label { color: var(--muted); font-weight: 600; }
+  .demo input[type=range] { flex: 1; min-width: 100px; accent-color: var(--accent); }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  #map {
+    height: 340px; width: 100%;
+    border-radius: 0; background: #0b1326;
+  }
   .map-legend {
-    display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 16px 14px;
+    display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 16px 12px;
     font-size: .75rem; color: var(--muted);
   }
   .lg { display: inline-flex; align-items: center; gap: 6px; }
@@ -182,7 +234,7 @@
 
   .detector-list {
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-    padding: 0 16px 16px; max-height: 180px; overflow: auto;
+    padding: 0 16px 16px; max-height: 200px; overflow: auto;
   }
   @media (max-width: 600px) { .detector-list { grid-template-columns: 1fr; } }
   .det {
@@ -198,56 +250,11 @@
   .det .name { font-weight: 700; color: var(--text); }
   .det .stats { color: var(--muted); }
 
-  /* Chart */
-  .chart-box { position: relative; height: 280px; padding: 4px 8px 12px; }
-  .json-panel {
-    margin: 0 16px 16px;
-    background: rgba(0,0,0,.35);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 14px;
-    padding: 12px 14px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: .72rem;
-    color: #b8d0ff;
-    white-space: pre-wrap;
-    word-break: break-all;
-    max-height: 140px;
-    overflow: auto;
-  }
-  .json-label {
-    padding: 0 16px 6px;
-    font-size: .75rem; color: var(--muted); font-weight: 600;
-  }
-
-  /* Demo */
-  .demo {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
-    padding: 14px 16px 18px;
-    border-top: 1px solid rgba(255,255,255,.06);
-  }
-  .demo label { font-size: .8rem; color: var(--muted); font-weight: 600; }
-  .demo input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
-  .toggle {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: .8rem; cursor: pointer; user-select: none;
-  }
-  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
-
-  /* Bottom */
   .foot {
     margin-top: 18px; text-align: center; color: var(--muted); font-size: .75rem; line-height: 1.6;
   }
   .foot a { color: var(--accent); text-decoration: none; }
   .foot a:hover { text-decoration: underline; }
-
-  .illus {
-    display: flex; gap: 10px; justify-content: center; margin-top: 10px; opacity: .9;
-  }
-  .illus .ico {
-    width: 42px; height: 42px; border-radius: 12px;
-    display: grid; place-items: center; font-size: 20px;
-    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
-  }
 </style>
 </head>
 <body>
@@ -257,59 +264,85 @@
       <div class="logo" aria-hidden="true">🚦</div>
       <div>
         <h1>聚星路現場板</h1>
-        <p>天水圍 · CocoPi 人流 ＋ 運輸署公開資料路況</p>
+        <p>天水圍 · A／B 區 CocoPi 人流 ＋ 運輸署公開資料路況</p>
       </div>
     </div>
     <div class="chips">
-      <span class="chip" id="chipIot"><span class="dot"></span><span id="chipIotText">IoT：連接中…</span></span>
+      <span class="chip" id="chipA"><span class="dot"></span><span id="chipAText">A區：連接中…</span></span>
+      <span class="chip" id="chipB"><span class="dot"></span><span id="chipBText">B區：連接中…</span></span>
       <span class="chip" id="chipTraffic"><span class="dot"></span><span id="chipTrafficText">交通：載入中…</span></span>
-      <span class="chip"><span class="dot"></span>各每 60 秒更新</span>
+      <span class="chip"><span class="dot"></span>各每 60 秒同步更新</span>
     </div>
   </header>
 
-  <div class="grid">
-    <!-- LEFT: signal + chart + json -->
+  <div class="layout">
     <div>
-      <section class="card hero mode-idle" id="hero">
-        <div class="orb-wrap">
-          <div class="rings"></div>
-          <div class="rings"></div>
-          <div class="orb" id="orb" title="人數訊號燈"></div>
+      <section class="card" style="padding:14px">
+        <div class="zones">
+          <!-- A區 -->
+          <div class="zone zone-a mode-idle" id="zoneA">
+            <span class="zone-badge">A區</span>
+            <span class="zone-field" id="fieldA">no_of_face</span>
+            <div class="orb-wrap">
+              <div class="rings"></div>
+              <div class="rings"></div>
+              <div class="orb"></div>
+            </div>
+            <div class="count-big"><span id="countA">—</span><span class="count-unit">人</span></div>
+            <div class="status-line" id="statusA">等待 IoT…</div>
+            <div class="zone-meta">
+              meta.id：<strong id="metaA">—</strong><br />
+              更新：<strong id="updateA">—</strong>
+            </div>
+            <pre class="json-mini" id="jsonA">尚未收到…</pre>
+          </div>
+          <!-- B區 -->
+          <div class="zone zone-b mode-idle" id="zoneB">
+            <span class="zone-badge">B區</span>
+            <span class="zone-field" id="fieldB">no_of_face_B</span>
+            <div class="orb-wrap">
+              <div class="rings"></div>
+              <div class="rings"></div>
+              <div class="orb"></div>
+            </div>
+            <div class="count-big"><span id="countB">—</span><span class="count-unit">人</span></div>
+            <div class="status-line" id="statusB">等待 IoT…</div>
+            <div class="zone-meta">
+              meta.id：<strong id="metaB">—</strong><br />
+              更新：<strong id="updateB">—</strong>
+            </div>
+            <pre class="json-mini" id="jsonB">尚未收到…</pre>
+          </div>
         </div>
-        <div class="count-big"><span id="countNum">—</span><span class="count-unit">人</span></div>
-        <div class="status-line" id="statusLine">等待 IoT 數據…</div>
-        <div class="rule-hint">訊號規則：≤ 5 人 → 🟢 綠（安全／正常）｜＞ 5 人 → 🔴 紅（人數偏高・請注意）</div>
-        <div class="meta-row">
-          <span>欄位：<strong id="fieldUsed">—</strong></span>
-          <span>meta.id：<strong id="metaId">—</strong></span>
-          <span>上次更新：<strong id="lastUpdate">—</strong></span>
+
+        <div class="dual-banner" id="dualBanner">
+          <span class="ico">🚨</span>
+          <div>
+            <div>建議通知執法</div>
+            <div class="sub" id="dualReason">人流偏高（A 或 B＞5）＋ 附近路況黃／紅</div>
+          </div>
         </div>
-        <div class="illus" aria-hidden="true">
-          <div class="ico">👥</div>
-          <div class="ico">📡</div>
-          <div class="ico">🗺️</div>
-          <div class="ico">📈</div>
+        <div class="rule-hint">
+          訊號：≤5 🟢 綠｜＞5 🔴 紅　·　雙條件：任一區人數＞5 <strong>且</strong> 附近探測器黃／紅 → 建議通知執法
         </div>
       </section>
 
-      <section class="card" style="margin-top:16px">
+      <section class="card" style="margin-top:14px">
         <div class="card-pad card-title">
-          <h2>實時人臉／人數圖表</h2>
-          <span>no_of_face · 門檻 y=5 · 每分鐘一點</span>
+          <h2>A／B 區實時人數圖表</h2>
+          <span>雙線 · 門檻 y=5 · 每分鐘同步一點</span>
         </div>
         <div class="chart-box"><canvas id="peopleChart"></canvas></div>
-        <div class="json-label">最近一次收到的 IoT 數據（原文）</div>
-        <pre class="json-panel" id="jsonPanel">尚未收到數據…</pre>
         <div class="demo">
-          <label class="toggle"><input type="checkbox" id="demoToggle" /> 課堂演示模式</label>
-          <label for="demoSlider">演示人數</label>
-          <input type="range" id="demoSlider" min="0" max="20" value="3" disabled />
-          <strong id="demoVal">3</strong>
+          <label class="toggle"><input type="checkbox" id="demoToggle" /> 課堂演示</label>
+          <label>A區 <input type="range" id="demoA" min="0" max="20" value="2" disabled /></label>
+          <strong id="demoAVal">2</strong>
+          <label>B區 <input type="range" id="demoB" min="0" max="20" value="8" disabled /></label>
+          <strong id="demoBVal">8</strong>
         </div>
       </section>
     </div>
 
-    <!-- RIGHT: map -->
     <div>
       <section class="card">
         <div class="card-pad card-title">
@@ -318,9 +351,9 @@
         </div>
         <div id="map"></div>
         <div class="map-legend">
-          <span class="lg g"><i></i>暢通（綠）</span>
-          <span class="lg y"><i></i>繁忙（黃：佔用≥40% 或 速度≤40）</span>
-          <span class="lg r"><i></i>擠塞（紅：佔用≥60% 或 速度≤20）</span>
+          <span class="lg g"><i></i>暢通</span>
+          <span class="lg y"><i></i>繁忙（佔用≥40% 或 速度≤40）</span>
+          <span class="lg r"><i></i>擠塞（佔用≥60% 或 速度≤20）</span>
         </div>
         <div class="detector-list" id="detectorList"></div>
       </section>
@@ -330,10 +363,10 @@
   <footer class="foot">
     資料來源：
     <a href="https://data.gov.hk/" target="_blank" rel="noopener">運輸署公開資料</a>
-    （rawSpeedVol-all.xml）·
+    ·
     <a href="https://api.cocorobo.hk/" target="_blank" rel="noopener">CocoPi IoT</a>
-    · 地圖底圖 © OpenStreetMap
-    <br />專題研習原型 · 天水圍聚星路
+    （A區 <code>no_of_face</code>／B區 <code>no_of_face_B</code>）
+    · © OpenStreetMap
   </footer>
 </div>
 
@@ -341,12 +374,22 @@
 (function () {
   'use strict';
 
-  const COCOPI_URL = 'https://api.cocorobo.hk/iot/data/eventAPIKey/efee43b4132b83b082d15dd9cd3c7f83';
+  const ZONE_A = {
+    id: 'A',
+    label: 'A區',
+    url: 'https://api.cocorobo.hk/iot/data/eventAPIKey/efee43b4132b83b082d15dd9cd3c7f83',
+    keys: ['no_of_face', 'no_of_people', 'count', 'people', 'face', 'faces']
+  };
+  const ZONE_B = {
+    id: 'B',
+    label: 'B區',
+    url: 'https://api.cocorobo.hk/iot/data/eventAPIKey/4e1ce54a77a08bf54547811707e06468',
+    keys: ['no_of_face_B', 'no_of_face', 'no_of_people', 'count', 'people', 'face', 'faces']
+  };
   const XML_URL = 'https://resource.data.one.gov.hk/td/traffic-detectors/rawSpeedVol-all.xml';
   const POLL_MS = 60 * 1000;
   const THRESHOLD = 5;
   const MAP_CENTER = [22.459, 114.006];
-
   const PRIORITY_IDS = [
     'TDSLTR10001', 'TDSLTR20001', 'TDSLTR10002', 'TDSLTR20002',
     'TDSTYR10001', 'TDSTYR10002', 'TDSTYR20001', 'TDSTYR10003', 'TDSTYR20002'
@@ -363,27 +406,15 @@
     {id:'TDSTYR20002', road_tc:'天影路近天月路 - 南行', lat:22.47096761, lng:113.9973235, tip:'天影路'}
   ];
 
-  const el = {
-    hero: document.getElementById('hero'),
-    countNum: document.getElementById('countNum'),
-    statusLine: document.getElementById('statusLine'),
-    fieldUsed: document.getElementById('fieldUsed'),
-    metaId: document.getElementById('metaId'),
-    lastUpdate: document.getElementById('lastUpdate'),
-    jsonPanel: document.getElementById('jsonPanel'),
-    chipIot: document.getElementById('chipIot'),
-    chipIotText: document.getElementById('chipIotText'),
-    chipTraffic: document.getElementById('chipTraffic'),
-    chipTrafficText: document.getElementById('chipTrafficText'),
-    detectorList: document.getElementById('detectorList'),
-    demoToggle: document.getElementById('demoToggle'),
-    demoSlider: document.getElementById('demoSlider'),
-    demoVal: document.getElementById('demoVal')
+  const state = {
+    A: { count: null, field: null },
+    B: { count: null, field: null },
+    trafficBusy: false,
+    trafficWorst: 'idle'
   };
-
   let demoMode = false;
   let chart;
-  const history = { labels: [], values: [] };
+  const history = { labels: [], a: [], b: [] };
   const markers = {};
 
   function hkTime(d) {
@@ -392,9 +423,7 @@
         timeZone: 'Asia/Hong_Kong',
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
       }).format(d instanceof Date ? d : new Date(d));
-    } catch (e) {
-      return String(d);
-    }
+    } catch (e) { return String(d); }
   }
 
   function setChip(chip, textEl, text, cls) {
@@ -408,93 +437,117 @@
     return n > THRESHOLD ? 'red' : 'green';
   }
 
-  function applySignal(count, field, meta) {
+  function applyZone(zoneKey, count, field, meta, rawJson) {
+    const zoneEl = document.getElementById('zone' + zoneKey);
+    const countEl = document.getElementById('count' + zoneKey);
+    const statusEl = document.getElementById('status' + zoneKey);
+    const metaEl = document.getElementById('meta' + zoneKey);
+    const updateEl = document.getElementById('update' + zoneKey);
+    const fieldEl = document.getElementById('field' + zoneKey);
+    const jsonEl = document.getElementById('json' + zoneKey);
+
     const level = signalLevel(count);
-    el.hero.classList.remove('mode-green', 'mode-red', 'mode-idle');
-    el.hero.classList.add('mode-' + level);
+    zoneEl.classList.remove('mode-green', 'mode-red', 'mode-idle');
+    zoneEl.classList.add('mode-' + level);
 
     if (count == null || Number.isNaN(count)) {
-      el.countNum.textContent = '—';
-      el.statusLine.textContent = '等待 IoT 數據…';
+      countEl.textContent = '—';
+      statusEl.textContent = '等待 IoT…';
     } else {
-      el.countNum.textContent = String(count);
-      if (level === 'green') {
-        el.statusLine.textContent = '🟢 安全／正常';
-      } else if (level === 'red') {
-        el.statusLine.textContent = '🔴 人數偏高・請注意';
-      } else {
-        el.statusLine.textContent = '等待 IoT 數據…';
-      }
+      countEl.textContent = String(count);
+      statusEl.textContent = level === 'red' ? '🔴 人數偏高・請注意' : '🟢 安全／正常';
     }
-    el.fieldUsed.textContent = field || '—';
-    el.metaId.textContent = meta && meta.id != null ? String(meta.id) : '—';
-    el.lastUpdate.textContent = hkTime(new Date());
+    fieldEl.textContent = field || '—';
+    metaEl.textContent = meta && meta.id != null ? String(meta.id) : '—';
+    updateEl.textContent = hkTime(new Date());
+    if (rawJson != null) {
+      jsonEl.textContent = typeof rawJson === 'string' ? rawJson : JSON.stringify(rawJson, null, 2);
+    }
+    state[zoneKey].count = count;
+    state[zoneKey].field = field;
+    updateDualBanner();
   }
 
-  function pushChartPoint(value) {
-    const label = hkTime(new Date());
-    history.labels.push(label);
-    history.values.push(value);
+  function updateDualBanner() {
+    const aHot = state.A.count != null && state.A.count > THRESHOLD;
+    const bHot = state.B.count != null && state.B.count > THRESHOLD;
+    const peopleHot = aHot || bHot;
+    const trafficHot = state.trafficBusy;
+    const banner = document.getElementById('dualBanner');
+    const reason = document.getElementById('dualReason');
+    if (peopleHot && trafficHot) {
+      const parts = [];
+      if (aHot) parts.push('A區 ' + state.A.count + ' 人');
+      if (bHot) parts.push('B區 ' + state.B.count + ' 人');
+      reason.textContent = parts.join('、') + ' ＞5　＋　附近路況' +
+        (state.trafficWorst === 'red' ? '紅' : '黃');
+      banner.classList.add('show');
+    } else {
+      banner.classList.remove('show');
+    }
+  }
+
+  function pushChartPoint(aVal, bVal) {
+    history.labels.push(hkTime(new Date()));
+    history.a.push(aVal == null ? null : aVal);
+    history.b.push(bVal == null ? null : bVal);
     const MAX = 60;
-    if (history.labels.length > MAX) {
-      history.labels.shift();
-      history.values.shift();
+    while (history.labels.length > MAX) {
+      history.labels.shift(); history.a.shift(); history.b.shift();
     }
     if (chart) {
       chart.data.labels = history.labels.slice();
-      chart.data.datasets[0].data = history.values.slice();
+      chart.data.datasets[0].data = history.a.slice();
+      chart.data.datasets[1].data = history.b.slice();
+      chart.data.datasets[2].data = Array(history.labels.length).fill(THRESHOLD);
       chart.update('none');
     }
   }
 
   function initChart() {
     const ctx = document.getElementById('peopleChart').getContext('2d');
-    const grad = ctx.createLinearGradient(0, 0, 0, 260);
-    grad.addColorStop(0, 'rgba(110,168,255,0.45)');
-    grad.addColorStop(1, 'rgba(110,168,255,0.02)');
-
     chart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: [],
         datasets: [
           {
-            label: 'no_of_face（人臉／人數）',
+            label: 'A區（no_of_face）',
             data: [],
             borderColor: '#6ea8ff',
-            backgroundColor: grad,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            pointBackgroundColor: '#9ec2ff',
-            borderWidth: 2.5
+            backgroundColor: 'rgba(110,168,255,0.12)',
+            fill: false, tension: 0.35,
+            pointRadius: 4, pointHoverRadius: 6,
+            pointBackgroundColor: '#9ec2ff', borderWidth: 2.5
+          },
+          {
+            label: 'B區（no_of_face_B）',
+            data: [],
+            borderColor: '#c084fc',
+            backgroundColor: 'rgba(192,132,252,0.12)',
+            fill: false, tension: 0.35,
+            pointRadius: 4, pointHoverRadius: 6,
+            pointBackgroundColor: '#e9d5ff', borderWidth: 2.5
           },
           {
             label: '門檻 = 5',
             data: [],
             borderColor: 'rgba(255,77,109,0.85)',
-            borderDash: [8, 6],
-            borderWidth: 2,
-            pointRadius: 0,
-            fill: false,
-            tension: 0
+            borderDash: [8, 6], borderWidth: 2,
+            pointRadius: 0, fill: false, tension: 0
           }
         ]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: {
-            labels: { color: '#9aadc8', font: { family: 'Noto Sans TC', size: 11 } }
-          },
+          legend: { labels: { color: '#9aadc8', font: { family: 'Noto Sans TC', size: 11 } } },
           tooltip: {
             callbacks: {
               label: function (c) {
-                if (c.datasetIndex === 1) return '門檻：5';
-                return '人數：' + c.parsed.y;
+                if (c.datasetIndex === 2) return '門檻：5';
+                return c.dataset.label + '：' + c.parsed.y + ' 人';
               }
             }
           }
@@ -505,57 +558,71 @@
             grid: { color: 'rgba(255,255,255,0.04)' }
           },
           y: {
-            beginAtZero: true,
-            suggestedMax: 10,
+            beginAtZero: true, suggestedMax: 12,
             ticks: { color: '#7a90b0', precision: 0 },
             grid: { color: 'rgba(255,255,255,0.06)' }
           }
         }
       }
     });
-
-    // Keep threshold dataset length in sync via plugin-like update hook
-    const _update = chart.update.bind(chart);
-    chart.update = function (mode) {
-      const n = chart.data.datasets[0].data.length;
-      chart.data.datasets[1].data = Array(n).fill(THRESHOLD);
-      return _update(mode);
-    };
   }
 
-  function extractCount(payload) {
+  function extractCount(payload, preferredKeys) {
     const row = payload && Array.isArray(payload.data) && payload.data[0] ? payload.data[0] : payload;
-    if (!row || typeof row !== 'object') return { count: null, field: null, meta: null, row: null };
-    const keys = ['no_of_face', 'no_of_people', 'count', 'people', 'face', 'faces'];
+    if (!row || typeof row !== 'object') return { count: null, field: null, meta: null };
     let field = null, count = null;
-    for (let i = 0; i < keys.length; i++) {
-      if (row[keys[i]] != null && row[keys[i]] !== '') {
-        field = keys[i];
-        count = Number(row[keys[i]]);
+    for (let i = 0; i < preferredKeys.length; i++) {
+      if (row[preferredKeys[i]] != null && row[preferredKeys[i]] !== '') {
+        field = preferredKeys[i];
+        count = Number(row[preferredKeys[i]]);
         break;
       }
     }
-    return { count: Number.isFinite(count) ? count : null, field: field, meta: row.meta || null, row: row };
+    return { count: Number.isFinite(count) ? count : null, field: field, meta: row.meta || null };
   }
 
-  async function pollIot() {
+  async function fetchZone(cfg) {
+    const res = await fetch(cfg.url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const extracted = extractCount(json, cfg.keys);
+    return { json: json, extracted: extracted };
+  }
+
+  async function pollBothIot() {
     if (demoMode) return;
-    try {
-      const res = await fetch(COCOPI_URL, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const json = await res.json();
-      el.jsonPanel.textContent = JSON.stringify(json, null, 2);
-      const extracted = extractCount(json);
-      applySignal(extracted.count, extracted.field, extracted.meta);
-      // Every successful poll plots a point (even if meta.id unchanged)
-      if (extracted.count != null) {
-        pushChartPoint(extracted.count);
-      }
-      setChip(el.chipIot, el.chipIotText, 'IoT：已連接 · ' + (extracted.field || '?'), 'ok');
-    } catch (err) {
-      setChip(el.chipIot, el.chipIotText, 'IoT：暫時失敗（可開演示）', 'err');
-      el.jsonPanel.textContent = '讀取失敗：' + (err && err.message ? err.message : String(err));
+    const results = await Promise.allSettled([fetchZone(ZONE_A), fetchZone(ZONE_B)]);
+
+    let aCount = state.A.count, bCount = state.B.count;
+
+    if (results[0].status === 'fulfilled') {
+      const r = results[0].value;
+      applyZone('A', r.extracted.count, r.extracted.field, r.extracted.meta, r.json);
+      aCount = r.extracted.count;
+      setChip(document.getElementById('chipA'), document.getElementById('chipAText'),
+        'A區：' + (r.extracted.field || '?') + ' · 已連接', 'ok');
+    } else {
+      setChip(document.getElementById('chipA'), document.getElementById('chipAText'),
+        'A區：暫時失敗', 'err');
+      document.getElementById('jsonA').textContent =
+        '讀取失敗：' + (results[0].reason && results[0].reason.message);
     }
+
+    if (results[1].status === 'fulfilled') {
+      const r = results[1].value;
+      applyZone('B', r.extracted.count, r.extracted.field, r.extracted.meta, r.json);
+      bCount = r.extracted.count;
+      setChip(document.getElementById('chipB'), document.getElementById('chipBText'),
+        'B區：' + (r.extracted.field || '?') + ' · 已連接', 'ok');
+    } else {
+      setChip(document.getElementById('chipB'), document.getElementById('chipBText'),
+        'B區：暫時失敗', 'err');
+      document.getElementById('jsonB').textContent =
+        '讀取失敗：' + (results[1].reason && results[1].reason.message);
+    }
+
+    // Every successful sync tick plots a point for both series
+    pushChartPoint(aCount, bCount);
   }
 
   function trafficLevel(speed, occ) {
@@ -564,21 +631,16 @@
     if ((Number.isFinite(o) && o >= 40) || (Number.isFinite(s) && s <= 40)) return 'yellow';
     return 'green';
   }
-
   function colorFor(level) {
     if (level === 'red') return '#ff4d6d';
     if (level === 'yellow') return '#ffc857';
     return '#22d38a';
   }
 
-  const map = L.map('map', { zoomControl: true, attributionControl: true })
-    .setView(MAP_CENTER, 14);
+  const map = L.map('map', { zoomControl: true }).setView(MAP_CENTER, 14);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
   }).addTo(map);
-
-  // Highlight 聚星路 area approx
   L.circle(MAP_CENTER, {
     radius: 450, color: '#6ea8ff', weight: 1.5,
     fillColor: '#6ea8ff', fillOpacity: 0.08
@@ -593,10 +655,15 @@
   });
 
   function renderDetectorList(byId) {
-    el.detectorList.innerHTML = '';
+    const list = document.getElementById('detectorList');
+    list.innerHTML = '';
+    let worst = 'green';
+    let busy = false;
     DETECTORS.forEach(function (d) {
       const live = byId[d.id];
       const level = live ? trafficLevel(live.speed, live.occupancy) : 'idle';
+      if (level === 'red') { worst = 'red'; busy = true; }
+      else if (level === 'yellow' && worst !== 'red') { worst = 'yellow'; busy = true; }
       const speed = live && live.speed != null ? live.speed : '—';
       const occ = live && live.occupancy != null ? live.occupancy : '—';
       const div = document.createElement('div');
@@ -605,7 +672,7 @@
         '<span class="bulb ' + (level === 'idle' ? '' : level) + '"></span>' +
         '<div><div class="name">' + d.road_tc + '</div>' +
         '<div class="stats">' + d.id + ' · ' + speed + ' km/h · 佔用 ' + occ + '%</div></div>';
-      el.detectorList.appendChild(div);
+      list.appendChild(div);
       if (markers[d.id] && live) {
         markers[d.id].setStyle({ fillColor: colorFor(level) });
         markers[d.id].setPopupContent(
@@ -615,6 +682,9 @@
         );
       }
     });
+    state.trafficBusy = busy;
+    state.trafficWorst = busy ? worst : 'idle';
+    updateDualBanner();
   }
 
   function parseXml(text) {
@@ -641,10 +711,7 @@
         }
       }
       if (n > 0) {
-        byId[id] = {
-          speed: Math.round(speedSum / n),
-          occupancy: Math.round(occSum / n)
-        };
+        byId[id] = { speed: Math.round(speedSum / n), occupancy: Math.round(occSum / n) };
       }
     }
     return byId;
@@ -654,56 +721,59 @@
     try {
       const res = await fetch(XML_URL, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const text = await res.text();
-      const byId = parseXml(text);
+      const byId = parseXml(await res.text());
       let hit = 0;
       PRIORITY_IDS.forEach(function (id) { if (byId[id]) hit++; });
       renderDetectorList(byId);
-      setChip(el.chipTraffic, el.chipTrafficText,
-        '交通：政府公開資料（每分鐘 · 命中 ' + hit + '/' + PRIORITY_IDS.length + '）',
+      setChip(document.getElementById('chipTraffic'), document.getElementById('chipTrafficText'),
+        '交通：公開資料（命中 ' + hit + '/' + PRIORITY_IDS.length + '）',
         hit > 0 ? 'ok' : 'warn');
     } catch (err) {
       renderDetectorList({});
-      setChip(el.chipTraffic, el.chipTrafficText, '交通：讀取失敗', 'err');
+      setChip(document.getElementById('chipTraffic'), document.getElementById('chipTrafficText'),
+        '交通：讀取失敗', 'err');
     }
   }
 
-  // Demo mode
-  el.demoToggle.addEventListener('change', function () {
-    demoMode = el.demoToggle.checked;
-    el.demoSlider.disabled = !demoMode;
-    if (demoMode) {
-      setChip(el.chipIot, el.chipIotText, 'IoT：課堂演示模式', 'warn');
-      const v = Number(el.demoSlider.value);
-      applySignal(v, 'demo', { id: 'demo' });
-      pushChartPoint(v);
-      el.jsonPanel.textContent = JSON.stringify({
-        data: [{ no_of_face: v, meta: { id: 'demo', note: '課堂演示' } }]
-      }, null, 2);
-    } else {
-      pollIot();
-    }
+  // Demo
+  const demoToggle = document.getElementById('demoToggle');
+  const demoA = document.getElementById('demoA');
+  const demoB = document.getElementById('demoB');
+  function applyDemo() {
+    const a = Number(demoA.value), b = Number(demoB.value);
+    document.getElementById('demoAVal').textContent = a;
+    document.getElementById('demoBVal').textContent = b;
+    applyZone('A', a, 'demo', { id: 'demo' }, { data: [{ no_of_face: a, meta: { id: 'demo' } }] });
+    applyZone('B', b, 'demo', { id: 'demo' }, { data: [{ no_of_face_B: b, meta: { id: 'demo' } }] });
+    pushChartPoint(a, b);
+    setChip(document.getElementById('chipA'), document.getElementById('chipAText'), 'A區：課堂演示', 'warn');
+    setChip(document.getElementById('chipB'), document.getElementById('chipBText'), 'B區：課堂演示', 'warn');
+  }
+  demoToggle.addEventListener('change', function () {
+    demoMode = demoToggle.checked;
+    demoA.disabled = !demoMode;
+    demoB.disabled = !demoMode;
+    if (demoMode) applyDemo();
+    else pollBothIot();
   });
-  el.demoSlider.addEventListener('input', function () {
-    el.demoVal.textContent = el.demoSlider.value;
-    if (!demoMode) return;
-    const v = Number(el.demoSlider.value);
-    applySignal(v, 'demo', { id: 'demo' });
-    pushChartPoint(v);
-    el.jsonPanel.textContent = JSON.stringify({
-      data: [{ no_of_face: v, meta: { id: 'demo', note: '課堂演示' } }]
-    }, null, 2);
+  demoA.addEventListener('input', function () {
+    document.getElementById('demoAVal').textContent = demoA.value;
+    if (demoMode) applyDemo();
   });
-  el.demoVal.textContent = el.demoSlider.value;
+  demoB.addEventListener('input', function () {
+    document.getElementById('demoBVal').textContent = demoB.value;
+    if (demoMode) applyDemo();
+  });
 
   initChart();
   renderDetectorList({});
-  pollIot();
+  pollBothIot();
   pollTraffic();
-  setInterval(function () { if (!demoMode) pollIot(); }, POLL_MS);
-  setInterval(pollTraffic, POLL_MS);
+  setInterval(function () {
+    if (!demoMode) pollBothIot();
+    pollTraffic();
+  }, POLL_MS);
 
-  // Fix leaflet size after layout
   setTimeout(function () { map.invalidateSize(); }, 200);
   window.addEventListener('resize', function () { map.invalidateSize(); });
 })();
