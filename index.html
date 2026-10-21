@@ -1,447 +1,339 @@
 <!DOCTYPE html>
-<html lang="zh-Hant-HK">
+<html lang="zh-HK">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>聚星路現場板｜人流與交通實況</title>
-<meta name="description" content="天水圍聚星路人流警示＋附近實時交通流量互動地圖">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<meta name="description" content="天水圍聚星路：CocoPi 人臉／人數實時圖表 ＋ 運輸署公開資料幹道地圖" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
   :root {
-    --bg0: #07111f;
-    --bg1: #0b1a2e;
-    --card: rgba(12, 24, 42, 0.88);
-    --card-solid: #0f1f35;
-    --ink: #f1f5f9;
-    --muted: #94a3b8;
-    --line: rgba(148, 163, 184, 0.22);
-    --accent: #38bdf8;
-    --accent2: #a78bfa;
-    --green: #22c55e;
-    --yellow: #facc15;
-    --red: #ef4444;
-    --orange: #fb923c;
-    --shadow: 0 18px 50px rgba(0,0,0,.45);
+    --bg0: #070b16;
+    --bg1: #0f1730;
+    --card: rgba(18, 28, 52, 0.72);
+    --card-border: rgba(120, 160, 255, 0.18);
+    --text: #eef3ff;
+    --muted: #9aadc8;
+    --green: #22d38a;
+    --green-glow: rgba(34, 211, 138, 0.55);
+    --red: #ff4d6d;
+    --red-glow: rgba(255, 77, 109, 0.55);
+    --yellow: #ffc857;
+    --accent: #6ea8ff;
     --radius: 22px;
+    --shadow: 0 18px 50px rgba(0,0,0,.45);
   }
   * { box-sizing: border-box; }
-  html, body {
-    margin: 0; min-height: 100%;
-    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-    color: var(--ink);
+  html, body { margin: 0; padding: 0; min-height: 100%; }
+  body {
+    font-family: "Noto Sans TC", "PingFang HK", "Microsoft JhengHei", sans-serif;
+    color: var(--text);
     background:
-      radial-gradient(1200px 600px at 10% -10%, rgba(56,189,248,.22), transparent 55%),
-      radial-gradient(900px 500px at 100% 0%, rgba(167,139,250,.18), transparent 50%),
-      radial-gradient(800px 500px at 50% 110%, rgba(34,197,94,.12), transparent 45%),
-      linear-gradient(165deg, var(--bg0), var(--bg1) 55%, #0a1628);
+      radial-gradient(1200px 600px at 10% -10%, rgba(80,120,255,.28), transparent 55%),
+      radial-gradient(900px 500px at 95% 0%, rgba(34,211,138,.16), transparent 50%),
+      radial-gradient(700px 400px at 70% 100%, rgba(255,77,109,.12), transparent 55%),
+      linear-gradient(165deg, var(--bg0), var(--bg1) 55%, #0a1224);
+    background-attachment: fixed;
   }
-  body { padding: 14px 14px 28px; }
-  a { color: var(--accent); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 20px 18px 40px; }
 
-  .shell {
-    max-width: 1280px; margin: 0 auto;
-    display: grid; gap: 14px;
-    grid-template-columns: 1.15fr 0.85fr;
-    grid-template-areas:
-      "hero hero"
-      "map side"
-      "chart chart"
-      "foot foot";
+  /* Header */
+  .topbar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 18px;
   }
-  .hero { grid-area: hero; }
-  .map-card { grid-area: map; }
-  .side { grid-area: side; display: flex; flex-direction: column; gap: 14px; }
-  .chart-card { grid-area: chart; }
-  .foot { grid-area: foot; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 52px; height: 52px; border-radius: 16px;
+    background: linear-gradient(145deg, #3d7eff, #22d38a);
+    display: grid; place-items: center; font-size: 26px;
+    box-shadow: 0 8px 24px rgba(61,126,255,.4);
+  }
+  .brand h1 { margin: 0; font-size: 1.35rem; font-weight: 900; letter-spacing: .02em; }
+  .brand p { margin: 2px 0 0; color: var(--muted); font-size: .85rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 999px; font-size: .78rem; font-weight: 600;
+    background: rgba(255,255,255,.06); border: 1px solid var(--card-border); color: var(--muted);
+  }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .chip.ok .dot { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+  .chip.warn .dot { background: var(--yellow); }
+  .chip.err .dot { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: 1.05fr 1.2fr;
+    gap: 16px;
+  }
+  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
 
   .card {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1px solid var(--card-border);
     border-radius: var(--radius);
-    backdrop-filter: blur(14px);
+    backdrop-filter: blur(16px);
     box-shadow: var(--shadow);
+    overflow: hidden;
   }
+  .card-pad { padding: 20px 22px; }
+  .card-title {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .card-title h2 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+  .card-title span { font-size: .75rem; color: var(--muted); }
 
-  /* —— Hero alert —— */
+  /* Hero signal */
   .hero {
-    position: relative; overflow: hidden;
-    padding: 22px 24px 20px;
-    display: grid; gap: 16px;
-    grid-template-columns: 1.2fr 1fr;
-    align-items: stretch;
+    position: relative;
+    min-height: 340px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 28px 20px 24px;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(255,255,255,.06), transparent 60%),
+      linear-gradient(180deg, rgba(255,255,255,.03), transparent);
   }
-  .hero::before {
-    content: ""; position: absolute; inset: -40% auto auto -20%;
-    width: 60%; height: 140%;
-    background: radial-gradient(circle, rgba(255,255,255,.08), transparent 65%);
+  .hero.mode-green { --sig: var(--green); --sig-glow: var(--green-glow); }
+  .hero.mode-red { --sig: var(--red); --sig-glow: var(--red-glow); }
+  .hero.mode-idle { --sig: #6b7a99; --sig-glow: rgba(107,122,153,.35); }
+
+  .orb-wrap { position: relative; width: 168px; height: 168px; margin-bottom: 8px; }
+  .orb {
+    width: 168px; height: 168px; border-radius: 50%;
+    background:
+      radial-gradient(circle at 35% 28%, rgba(255,255,255,.85), transparent 28%),
+      radial-gradient(circle at 50% 55%, var(--sig), #0a0f1a 78%);
+    box-shadow:
+      0 0 0 10px rgba(255,255,255,.04),
+      0 0 40px var(--sig-glow),
+      0 0 90px var(--sig-glow),
+      inset 0 -18px 40px rgba(0,0,0,.35);
+    animation: pulse 2.2s ease-in-out infinite;
+    position: relative; z-index: 1;
+  }
+  .orb::after {
+    content: ""; position: absolute; inset: 18%;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.12);
+  }
+  .rings {
+    position: absolute; inset: -18px; border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--sig) 45%, transparent);
+    animation: ring 2.4s ease-out infinite;
     pointer-events: none;
   }
-  .brand { position: relative; z-index: 1; }
-  .brand .kicker {
+  .rings:nth-child(2) { animation-delay: .8s; inset: -28px; opacity: .6; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.04); filter: brightness(1.12); }
+  }
+  @keyframes ring {
+    0% { transform: scale(.85); opacity: .7; }
+    100% { transform: scale(1.25); opacity: 0; }
+  }
+
+  .count-big {
+    font-size: clamp(3.2rem, 8vw, 4.6rem);
+    font-weight: 900; line-height: 1; letter-spacing: -.03em;
+    margin: 6px 0 2px;
+    text-shadow: 0 0 28px var(--sig-glow);
+  }
+  .count-unit { font-size: 1rem; font-weight: 700; color: var(--muted); margin-left: 6px; }
+  .status-line {
+    margin-top: 8px; font-size: 1.15rem; font-weight: 800;
+    color: var(--sig);
     display: inline-flex; align-items: center; gap: 8px;
-    font-size: .78rem; font-weight: 700; letter-spacing: .08em;
-    text-transform: uppercase; color: var(--accent);
-    background: rgba(56,189,248,.12); border: 1px solid rgba(56,189,248,.3);
-    padding: 5px 12px; border-radius: 999px;
+    padding: 8px 16px; border-radius: 999px;
+    background: color-mix(in srgb, var(--sig) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sig) 35%, transparent);
   }
-  .brand h1 {
-    margin: 12px 0 6px; font-size: clamp(1.45rem, 3.2vw, 2.1rem);
-    font-weight: 900; letter-spacing: .02em; line-height: 1.15;
+  .rule-hint { margin-top: 12px; color: var(--muted); font-size: .82rem; }
+  .meta-row {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px;
+    margin-top: 16px; font-size: .78rem; color: var(--muted);
   }
-  .brand p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.55; max-width: 42ch; }
-  .brand .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-  .chip {
-    font-size: .74rem; padding: 5px 10px; border-radius: 999px;
-    border: 1px solid var(--line); color: var(--muted); background: rgba(255,255,255,.03);
-  }
-  .chip.live { color: #4ade80; border-color: rgba(34,197,94,.4); background: rgba(34,197,94,.1); }
-  .chip.warn { color: #fde68a; border-color: rgba(250,204,21,.4); background: rgba(250,204,21,.1); }
-  .chip.err { color: #fca5a5; border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.1); }
+  .meta-row strong { color: var(--text); font-weight: 700; }
 
-  .alert-board {
-    position: relative; z-index: 1;
-    border-radius: 20px; padding: 18px 18px 16px;
-    background: linear-gradient(145deg, rgba(34,197,94,.22), rgba(15,31,53,.85));
-    border: 1px solid rgba(34,197,94,.45);
-    display: flex; flex-direction: column; justify-content: space-between;
-    min-height: 168px;
-    transition: background .45s, border-color .45s, box-shadow .45s;
-  }
-  .alert-board.yellow {
-    background: linear-gradient(145deg, rgba(250,204,21,.28), rgba(15,31,53,.88));
-    border-color: rgba(250,204,21,.55);
-    box-shadow: 0 0 0 1px rgba(250,204,21,.15), 0 16px 40px rgba(250,204,21,.12);
-  }
-  .alert-board.red {
-    background: linear-gradient(145deg, rgba(239,68,68,.38), rgba(15,31,53,.9));
-    border-color: rgba(239,68,68,.65);
-    box-shadow: 0 0 0 1px rgba(239,68,68,.2), 0 18px 48px rgba(239,68,68,.25);
-    animation: pulseRed 1.7s ease-in-out infinite;
-  }
-  @keyframes pulseRed {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.012); }
-  }
-  .alert-label { font-size: .78rem; font-weight: 700; letter-spacing: .06em; opacity: .9; }
-  .alert-emoji { font-size: 1.6rem; margin-left: 6px; }
-  .people-num {
-    font-size: clamp(3.2rem, 8vw, 4.6rem); font-weight: 900;
-    line-height: 1; letter-spacing: -.03em; margin: 6px 0 2px;
-    font-variant-numeric: tabular-nums;
-  }
-  .people-unit { font-size: 1rem; font-weight: 700; opacity: .85; margin-left: 6px; }
-  .alert-msg { font-size: .95rem; font-weight: 700; margin-top: 4px; }
-  .alert-sub { font-size: .78rem; color: rgba(241,245,249,.78); margin-top: 4px; line-height: 1.4; }
-  .upgrade-tip {
-    margin-top: 10px; padding: 8px 12px; border-radius: 12px;
-    background: linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.9));
-    color: #fff; font-size: .82rem; font-weight: 800;
-    display: none; align-items: center; gap: 8px;
-    animation: pulseRed 1.4s ease-in-out infinite;
-  }
-  .upgrade-tip.show { display: flex; }
-
-  /* —— Map —— */
-  .map-card { padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 520px; }
-  .map-head {
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 2px 4px;
-  }
-  .map-head h2 { margin: 0; font-size: 1rem; font-weight: 800; }
-  .map-head .meta { font-size: .75rem; color: var(--muted); }
+  /* Map */
   #map {
-    flex: 1; min-height: 420px; border-radius: 16px; overflow: hidden;
-    border: 1px solid var(--line);
+    height: 360px; width: 100%;
+    border-radius: 0 0 var(--radius) var(--radius);
+    background: #0b1326;
   }
-  .legend-bar {
-    display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;
-    font-size: .74rem; color: var(--muted); padding: 2px 4px;
+  .leaflet-container { font: inherit; }
+  .map-legend {
+    display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 16px 14px;
+    font-size: .75rem; color: var(--muted);
   }
-  .dot {
-    width: 11px; height: 11px; border-radius: 50%;
-    display: inline-block; margin-right: 5px;
-    border: 2px solid rgba(255,255,255,.85); vertical-align: -1px;
-  }
-  .dot.g { background: var(--green); }
-  .dot.y { background: var(--yellow); }
-  .dot.r { background: var(--red); }
-  .dot.x { background: #64748b; }
+  .lg { display: inline-flex; align-items: center; gap: 6px; }
+  .lg i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .lg.g i { background: var(--green); }
+  .lg.y i { background: var(--yellow); }
+  .lg.r i { background: var(--red); }
 
-  .leaflet-popup-content-wrapper {
-    background: #12253d; color: var(--ink); border-radius: 14px;
-    box-shadow: 0 12px 28px rgba(0,0,0,.45); border: 1px solid var(--line);
+  .detector-list {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    padding: 0 16px 16px; max-height: 180px; overflow: auto;
   }
-  .leaflet-popup-tip { background: #12253d; }
-  .leaflet-popup-content { margin: 12px 14px; font-size: .86rem; line-height: 1.45; min-width: 180px; }
-  .leaflet-popup-content h3 { margin: 0 0 4px; font-size: .95rem; }
-  .leaflet-popup-content .meta { color: var(--muted); font-size: .75rem; margin-bottom: 8px; }
-  .leaflet-popup-content table { width: 100%; border-collapse: collapse; }
-  .leaflet-popup-content td { padding: 2px 0; }
-  .leaflet-popup-content td:last-child { text-align: right; font-weight: 700; }
-  .pill {
-    display: inline-block; padding: 2px 8px; border-radius: 999px;
-    font-size: .7rem; font-weight: 800; color: #0f172a;
-  }
-  .pill.g { background: var(--green); }
-  .pill.y { background: var(--yellow); }
-  .pill.r { background: var(--red); color: #fff; }
-  .pill.x { background: #64748b; color: #fff; }
-
-  /* —— Side panels —— */
-  .panel { padding: 16px 16px 14px; }
-  .panel h2 {
-    margin: 0 0 10px; font-size: .95rem; font-weight: 800;
+  @media (max-width: 600px) { .detector-list { grid-template-columns: 1fr; } }
+  .det {
     display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 12px;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06);
+    font-size: .75rem;
   }
-  .panel h2 .icon { font-size: 1.15rem; }
+  .det .bulb { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; background: #556; }
+  .det .bulb.green { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+  .det .bulb.yellow { background: var(--yellow); }
+  .det .bulb.red { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+  .det .name { font-weight: 700; color: var(--text); }
+  .det .stats { color: var(--muted); }
 
-  .detector-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow: auto; }
-  .det-row {
-    display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
-    padding: 10px 12px; border-radius: 14px;
-    background: rgba(255,255,255,.03); border: 1px solid var(--line);
+  /* Chart */
+  .chart-box { position: relative; height: 280px; padding: 4px 8px 12px; }
+  .json-panel {
+    margin: 0 16px 16px;
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .72rem;
+    color: #b8d0ff;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 140px;
+    overflow: auto;
   }
-  .det-row .name { font-size: .8rem; font-weight: 700; }
-  .det-row .sub { font-size: .68rem; color: var(--muted); margin-top: 2px; }
-  .det-row .vals { text-align: right; font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .det-row .vals strong { display: block; color: var(--ink); font-size: .82rem; }
+  .json-label {
+    padding: 0 16px 6px;
+    font-size: .75rem; color: var(--muted); font-weight: 600;
+  }
 
-  .demo-box {
-    margin-top: 4px; padding: 12px; border-radius: 16px;
-    background: linear-gradient(135deg, rgba(167,139,250,.14), rgba(56,189,248,.1));
-    border: 1px dashed rgba(167,139,250,.45);
+  /* Demo */
+  .demo {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    padding: 14px 16px 18px;
+    border-top: 1px solid rgba(255,255,255,.06);
   }
-  .demo-box h3 { margin: 0 0 6px; font-size: .82rem; font-weight: 800; color: #c4b5fd; }
-  .demo-box p { margin: 0 0 10px; font-size: .72rem; color: var(--muted); line-height: 1.45; }
-  .demo-box label { display: flex; justify-content: space-between; font-size: .78rem; font-weight: 700; margin-bottom: 6px; }
-  .demo-box input[type="range"] { width: 100%; accent-color: var(--accent2); }
-  .demo-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-  button {
-    appearance: none; cursor: pointer;
-    border-radius: 999px; border: 1px solid var(--line);
-    background: rgba(255,255,255,.05); color: var(--ink);
-    padding: 7px 12px; font-size: .76rem; font-weight: 700;
-    font-family: inherit; transition: transform .12s, background .15s;
+  .demo label { font-size: .8rem; color: var(--muted); font-weight: 600; }
+  .demo input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: .8rem; cursor: pointer; user-select: none;
   }
-  button:hover { background: rgba(255,255,255,.1); transform: translateY(-1px); }
-  button:active { transform: translateY(0); }
-  button.g { border-color: rgba(34,197,94,.45); color: #4ade80; background: rgba(34,197,94,.12); }
-  button.y { border-color: rgba(250,204,21,.45); color: #fde68a; background: rgba(250,204,21,.12); }
-  button.r { border-color: rgba(239,68,68,.45); color: #fca5a5; background: rgba(239,68,68,.12); }
-  button.ghost { color: var(--muted); }
+  .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
 
-  .status-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;
-  }
-  .stat {
-    padding: 10px 12px; border-radius: 14px;
-    background: rgba(255,255,255,.03); border: 1px solid var(--line);
-  }
-  .stat .k { font-size: .68rem; color: var(--muted); }
-  .stat .v { font-size: .95rem; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
-
-  .thresh {
-    display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0;
-  }
-  .thresh span {
-    font-size: .7rem; padding: 4px 8px; border-radius: 999px; font-weight: 700;
-  }
-  .thresh .g { background: rgba(34,197,94,.15); color: #4ade80; }
-  .thresh .y { background: rgba(250,204,21,.15); color: #fde68a; }
-  .thresh .r { background: rgba(239,68,68,.15); color: #fca5a5; }
-
-  /* —— Chart —— */
-  .chart-card { padding: 16px 18px 14px; }
-  .chart-card .head {
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
-    margin-bottom: 8px;
-  }
-  .chart-card h2 { margin: 0; font-size: 1rem; font-weight: 800; }
-  .chart-wrap { position: relative; height: 260px; }
-  .iot-receive {
-    margin-top: 12px; padding: 12px; border-radius: 14px;
-    background: rgba(56,189,248,.08); border: 1px solid rgba(56,189,248,.28);
-  }
-  .iot-receive h3 {
-    margin: 0 0 8px; font-size: .82rem; font-weight: 800; color: #7dd3fc;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .iot-receive .recv-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px;
-    font-size: .74rem; margin-bottom: 8px;
-  }
-  .iot-receive .recv-grid .k { color: var(--muted); }
-  .iot-receive .recv-grid .v { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; word-break: break-all; }
-  .iot-receive pre {
-    margin: 0; max-height: 140px; overflow: auto;
-    padding: 10px; border-radius: 10px;
-    background: rgba(2,8,20,.65); border: 1px solid var(--line);
-    color: #bae6fd; font-size: .68rem; line-height: 1.4;
-    white-space: pre-wrap; word-break: break-word;
-  }
-  .iot-receive .recv-badge {
-    display: inline-block; font-size: .65rem; padding: 2px 8px; border-radius: 999px;
-    background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.35);
-    margin-left: auto;
-  }
-  .iot-receive .recv-badge.off {
-    background: rgba(148,163,184,.15); color: var(--muted); border-color: rgba(148,163,184,.3);
-  }
-  .chart-wrap { height: 260px; }
-  .iot-log {
-
-    margin-top: 10px; max-height: 120px; overflow: auto;
-    border: 1px solid var(--line); border-radius: 12px; font-size: .72rem;
-  }
-  .iot-log table { width: 100%; border-collapse: collapse; }
-  .iot-log th, .iot-log td { padding: 5px 10px; text-align: left; border-bottom: 1px solid rgba(148,163,184,.12); }
-  .iot-log th { color: var(--accent); position: sticky; top: 0; background: var(--card-solid); }
-  .iot-log td { color: var(--ink); font-variant-numeric: tabular-nums; }
-
+  /* Bottom */
   .foot {
-    padding: 12px 16px; font-size: .74rem; color: var(--muted); line-height: 1.5;
-    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
+    margin-top: 18px; text-align: center; color: var(--muted); font-size: .75rem; line-height: 1.6;
   }
+  .foot a { color: var(--accent); text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
 
-  @media (max-width: 960px) {
-    .shell {
-      grid-template-columns: 1fr;
-      grid-template-areas: "hero" "side" "map" "chart" "foot";
-    }
-    .hero { grid-template-columns: 1fr; }
-    .map-card { min-height: 440px; }
-    #map { min-height: 360px; }
+  .illus {
+    display: flex; gap: 10px; justify-content: center; margin-top: 10px; opacity: .9;
   }
-  @media (max-width: 520px) {
-    body { padding: 10px 10px 22px; }
-    .people-num { font-size: 3rem; }
-    .status-grid { grid-template-columns: 1fr; }
+  .illus .ico {
+    width: 42px; height: 42px; border-radius: 12px;
+    display: grid; place-items: center; font-size: 20px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08);
   }
 </style>
 </head>
 <body>
-<div class="shell">
-
-  <!-- HERO -->
-  <section class="card hero">
+<div class="wrap">
+  <header class="topbar">
     <div class="brand">
-      <div class="kicker">🛰️ 聚星路現場板</div>
-      <h1>聚星路 · 人流與交通實況</h1>
-      <p>用 CocoPi 人數警示＋運輸署幹道探測器，一眼睇晒天水圍聚星路一帶熱鬧程度同附近路況。人數同交通齊轉黃／紅先提示「建議通知執法」。人數／交通各每分鐘更新；地區地圖顏色用政府公開資料。</p>
-      <div class="chips">
-        <span class="chip" id="chipPeopleSrc">人流：載入中…</span>
-        <span class="chip" id="chipTrafficSrc">交通：載入中…</span>
-        <span class="chip" id="chipMode">模式：—</span>
-      </div>
-    </div>
-    <div class="alert-board green" id="alertBoard">
+      <div class="logo" aria-hidden="true">🚦</div>
       <div>
-        <div class="alert-label">現場人流警示 <span class="alert-emoji" id="alertEmoji">🟢</span></div>
-        <div>
-          <span class="people-num" id="peopleNum">—</span>
-          <span class="people-unit">人</span>
+        <h1>聚星路現場板</h1>
+        <p>天水圍 · CocoPi 人流 ＋ 運輸署公開資料路況</p>
+      </div>
+    </div>
+    <div class="chips">
+      <span class="chip" id="chipIot"><span class="dot"></span><span id="chipIotText">IoT：連接中…</span></span>
+      <span class="chip" id="chipTraffic"><span class="dot"></span><span id="chipTrafficText">交通：載入中…</span></span>
+      <span class="chip"><span class="dot"></span>各每 60 秒更新</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: signal + chart + json -->
+    <div>
+      <section class="card hero mode-idle" id="hero">
+        <div class="orb-wrap">
+          <div class="rings"></div>
+          <div class="rings"></div>
+          <div class="orb" id="orb" title="人數訊號燈"></div>
         </div>
-        <div class="alert-msg" id="alertMsg">等待數據…</div>
-        <div class="alert-sub" id="alertSub">≤50 綠｜51–300 黃｜≥301 紅</div>
-      </div>
-      <div class="upgrade-tip" id="upgradeTip">🚨 雙條件達標：建議通知執法（人流＋附近路況齊黃／紅）</div>
-    </div>
-  </section>
-
-  <!-- MAP -->
-  <section class="card map-card">
-    <div class="map-head">
-      <h2>🗺️ 聚星路一帶交通</h2>
-      <div class="meta" id="mapMeta">政府公開資料 · 朗天路／天影路 · 每分鐘</div>
-    </div>
-    <div id="map"></div>
-    <div class="legend-bar">
-      <span><i class="dot g"></i>暢通</span>
-      <span><i class="dot y"></i>緩慢（佔用≥40% 或 速度≤40）</span>
-      <span><i class="dot r"></i>擠塞（佔用≥60% 或 速度≤20）</span>
-      <span><i class="dot x"></i>暫無數據</span>
-    </div>
-  </section>
-
-  <!-- SIDE -->
-  <aside class="side">
-    <section class="card panel">
-      <h2><span class="icon">📡</span> CocoPi 人流</h2>
-      <div class="status-grid">
-        <div class="stat"><div class="k">最新人數</div><div class="v" id="statPeople">—</div></div>
-        <div class="stat"><div class="k">警示等級</div><div class="v" id="statLevel">—</div></div>
-        <div class="stat"><div class="k">IoT 狀態</div><div class="v" id="statIot">—</div></div>
-        <div class="stat"><div class="k">上次更新</div><div class="v" id="statTs">—</div></div>
-      </div>
-      <div class="thresh">
-        <span class="g">🟢 ≤50 暢通</span>
-        <span class="y">🟡 51–300 注意</span>
-        <span class="r">🔴 ≥301 擠擁</span>
-      </div>
-
-      <div class="iot-receive" id="iotReceive">
-        <h3>📥 收到嘅 IoT 數據 <span class="recv-badge off" id="recvBadge">未收到</span></h3>
-        <div class="recv-grid">
-          <div><div class="k">no_of_people</div><div class="v" id="recvPeople">—</div></div>
-          <div><div class="k">meta.id</div><div class="v" id="recvMetaId">—</div></div>
-          <div><div class="k">meta.timestamp（香港）</div><div class="v" id="recvMetaTs">—</div></div>
-          <div><div class="k">上次拉取時間</div><div class="v" id="recvFetchTs">—</div></div>
+        <div class="count-big"><span id="countNum">—</span><span class="count-unit">人</span></div>
+        <div class="status-line" id="statusLine">等待 IoT 數據…</div>
+        <div class="rule-hint">訊號規則：≤ 5 人 → 🟢 綠（安全／正常）｜＞ 5 人 → 🔴 紅（人數偏高・請注意）</div>
+        <div class="meta-row">
+          <span>欄位：<strong id="fieldUsed">—</strong></span>
+          <span>meta.id：<strong id="metaId">—</strong></span>
+          <span>上次更新：<strong id="lastUpdate">—</strong></span>
         </div>
-        <pre id="recvRaw">等待第一次拉取…</pre>
-      </div>
-
-      <div class="demo-box" id="demoBox">
-        <h3>🎮 課堂演示模式</h3>
-        <p id="demoHint">CocoPi <code>no_of_people</code> 每 1 分鐘更新；離線時可用滑桿模擬人數練雙條件。</p>
-        <label><span>模擬人數</span><span id="demoVal">80</span></label>
-        <input type="range" id="demoSlider" min="0" max="500" value="80" step="1">
-        <div class="demo-btns">
-          <button type="button" class="g" data-demo="20">20（綠）</button>
-          <button type="button" class="y" data-demo="120">120（黃）</button>
-          <button type="button" class="r" data-demo="320">320（紅）</button>
-          <button type="button" class="ghost" id="btnRetryIot">重試 IoT</button>
+        <div class="illus" aria-hidden="true">
+          <div class="ico">👥</div>
+          <div class="ico">📡</div>
+          <div class="ico">🗺️</div>
+          <div class="ico">📈</div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="card panel">
-      <h2><span class="icon">🚗</span> 附近探測器</h2>
-      <p style="margin:0 0 10px;font-size:.74rem;color:var(--muted)">優先：朗天路近天福／庸園；天影路近天華／天秀／天月</p>
-      <div class="detector-list" id="detectorList"></div>
-      <div class="demo-btns" style="margin-top:10px">
-        <button type="button" class="ghost" id="btnRefreshTraffic">刷新交通</button>
-      </div>
-    </section>
-  </aside>
-
-  <!-- CHART -->
-  <section class="card chart-card">
-    <div class="head">
-      <h2>📈 no_of_people 每分鐘紀錄</h2>
-      <div class="demo-btns">
-        <button type="button" class="ghost" id="btnClearChart">清空紀錄</button>
-      </div>
+      <section class="card" style="margin-top:16px">
+        <div class="card-pad card-title">
+          <h2>實時人臉／人數圖表</h2>
+          <span>no_of_face · 門檻 y=5 · 每分鐘一點</span>
+        </div>
+        <div class="chart-box"><canvas id="peopleChart"></canvas></div>
+        <div class="json-label">最近一次收到的 IoT 數據（原文）</div>
+        <pre class="json-panel" id="jsonPanel">尚未收到數據…</pre>
+        <div class="demo">
+          <label class="toggle"><input type="checkbox" id="demoToggle" /> 課堂演示模式</label>
+          <label for="demoSlider">演示人數</label>
+          <input type="range" id="demoSlider" min="0" max="20" value="3" disabled />
+          <strong id="demoVal">3</strong>
+        </div>
+      </section>
     </div>
-    <div class="chart-wrap"><canvas id="peopleChart"></canvas></div>
-    <div class="iot-log">
-      <table>
-        <thead><tr><th>時間</th><th>no_of_people</th><th>等級</th><th>來源</th></tr></thead>
-        <tbody id="iotLogBody"><tr><td colspan="4" style="color:var(--muted)">暫未有更新</td></tr></tbody>
-      </table>
-    </div>
-  </section>
 
-  <footer class="card foot">
-    <span>交通來源：<a href="https://data.gov.hk/tc-data/dataset/hk-td-sm_4-traffic-data-strategic-major-roads" target="_blank" rel="noopener">運輸署主要幹道數據</a>（政府公開資料，地圖綠黃紅）</span>
-    <span>人流來源：CocoPi IoT <code style="font-size:.68rem">…/eventAPIKey/…</code>（欄位 no_of_people）</span>
-    <span>更新頻率：人數／交通各每分鐘更新</span>
-    <span>雙條件：人流黃／紅 ＋ 附近探測器黃／紅 → 升級提示</span>
+    <!-- RIGHT: map -->
+    <div>
+      <section class="card">
+        <div class="card-pad card-title">
+          <h2>聚星路一帶實時地圖</h2>
+          <span>運輸署幹道探測器 · Open Data</span>
+        </div>
+        <div id="map"></div>
+        <div class="map-legend">
+          <span class="lg g"><i></i>暢通（綠）</span>
+          <span class="lg y"><i></i>繁忙（黃：佔用≥40% 或 速度≤40）</span>
+          <span class="lg r"><i></i>擠塞（紅：佔用≥60% 或 速度≤20）</span>
+        </div>
+        <div class="detector-list" id="detectorList"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    資料來源：
+    <a href="https://data.gov.hk/" target="_blank" rel="noopener">運輸署公開資料</a>
+    （rawSpeedVol-all.xml）·
+    <a href="https://api.cocorobo.hk/" target="_blank" rel="noopener">CocoPi IoT</a>
+    · 地圖底圖 © OpenStreetMap
+    <br />專題研習原型 · 天水圍聚星路
   </footer>
 </div>
 
@@ -449,21 +341,16 @@
 (function () {
   'use strict';
 
-  const MAP_CENTER = [22.459, 114.006];
-  const MAP_ZOOM = 14;
+  const COCOPI_URL = 'https://api.cocorobo.hk/iot/data/eventAPIKey/efee43b4132b83b082d15dd9cd3c7f83';
   const XML_URL = 'https://resource.data.one.gov.hk/td/traffic-detectors/rawSpeedVol-all.xml';
-  const PEOPLE_URLS = [
-    'https://api.cocorobo.hk/iot/data/eventAPIKey/01b2720b44a677545bcdc4627929f54c'
-  ];
-  const IOT_POLL_MS = 60000;
-  const TRAFFIC_POLL_MS = 60000;
-  const HISTORY_MAX = 60;
+  const POLL_MS = 60 * 1000;
+  const THRESHOLD = 5;
+  const MAP_CENTER = [22.459, 114.006];
 
   const PRIORITY_IDS = [
     'TDSLTR10001', 'TDSLTR20001', 'TDSLTR10002', 'TDSLTR20002',
     'TDSTYR10001', 'TDSTYR10002', 'TDSTYR20001', 'TDSTYR10003', 'TDSTYR20002'
   ];
-
   const DETECTORS = [
     {id:'TDSLTR10001', road_tc:'朗天路近天福路 - 南行', lat:22.45102316, lng:114.0091724, tip:'最近聚星路'},
     {id:'TDSLTR20001', road_tc:'朗天路近天福路 - 北行', lat:22.4502649, lng:114.0094551, tip:'最近聚星路'},
@@ -476,645 +363,347 @@
     {id:'TDSTYR20002', road_tc:'天影路近天月路 - 南行', lat:22.47096761, lng:113.9973235, tip:'天影路'}
   ];
 
-  const state = {
-    people: null,
-    peopleLevel: 'green',
-    peopleSource: 'none',
-    iotOk: false,
-    iotLastId: null,
-    trafficById: {},
-    nearbyWorst: 'x',
-    history: [],
-    demoForce: false
-  };
-
   const el = {
-    alertBoard: document.getElementById('alertBoard'),
-    alertEmoji: document.getElementById('alertEmoji'),
-    peopleNum: document.getElementById('peopleNum'),
-    alertMsg: document.getElementById('alertMsg'),
-    alertSub: document.getElementById('alertSub'),
-    upgradeTip: document.getElementById('upgradeTip'),
-    chipPeopleSrc: document.getElementById('chipPeopleSrc'),
-    chipTrafficSrc: document.getElementById('chipTrafficSrc'),
-    chipMode: document.getElementById('chipMode'),
-    statPeople: document.getElementById('statPeople'),
-    statLevel: document.getElementById('statLevel'),
-    statIot: document.getElementById('statIot'),
-    statTs: document.getElementById('statTs'),
+    hero: document.getElementById('hero'),
+    countNum: document.getElementById('countNum'),
+    statusLine: document.getElementById('statusLine'),
+    fieldUsed: document.getElementById('fieldUsed'),
+    metaId: document.getElementById('metaId'),
+    lastUpdate: document.getElementById('lastUpdate'),
+    jsonPanel: document.getElementById('jsonPanel'),
+    chipIot: document.getElementById('chipIot'),
+    chipIotText: document.getElementById('chipIotText'),
+    chipTraffic: document.getElementById('chipTraffic'),
+    chipTrafficText: document.getElementById('chipTrafficText'),
     detectorList: document.getElementById('detectorList'),
+    demoToggle: document.getElementById('demoToggle'),
     demoSlider: document.getElementById('demoSlider'),
-    demoVal: document.getElementById('demoVal'),
-    demoHint: document.getElementById('demoHint'),
-    iotLogBody: document.getElementById('iotLogBody'),
-    mapMeta: document.getElementById('mapMeta'),
-    recvBadge: document.getElementById('recvBadge'),
-    recvPeople: document.getElementById('recvPeople'),
-    recvMetaId: document.getElementById('recvMetaId'),
-    recvMetaTs: document.getElementById('recvMetaTs'),
-    recvFetchTs: document.getElementById('recvFetchTs'),
-    recvRaw: document.getElementById('recvRaw')
+    demoVal: document.getElementById('demoVal')
   };
 
-  // —— Map ——
-  const map = L.map('map', { zoomControl: true, attributionControl: true })
-    .setView(MAP_CENTER, MAP_ZOOM);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap &copy; CARTO'
-  }).addTo(map);
-
-  // 聚星路 spot marker
-  const starIcon = L.divIcon({
-    className: '',
-    html: '<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#a78bfa);border:3px solid #fff;box-shadow:0 0 0 6px rgba(56,189,248,.25),0 8px 18px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:14px">📍</div>',
-    iconSize: [28, 28], iconAnchor: [14, 14]
-  });
-  L.marker(MAP_CENTER, { icon: starIcon, zIndexOffset: 500 })
-    .addTo(map)
-    .bindPopup('<h3>聚星路一帶</h3><div class="meta">現場人流監測焦點</div>');
-
+  let demoMode = false;
+  let chart;
+  const history = { labels: [], values: [] };
   const markers = {};
-  DETECTORS.forEach(function (d) {
-    const m = L.circleMarker([d.lat, d.lng], {
-      radius: 9, weight: 2, color: '#fff', fillColor: '#64748b', fillOpacity: 0.95
-    }).addTo(map);
-    m.bindPopup(popupHtml(d, null));
-    markers[d.id] = m;
-  });
 
-  function popupHtml(d, reading) {
-    const level = reading ? trafficLevel(reading) : 'x';
-    const label = levelLabel(level);
-    let body = '<h3>' + esc(d.road_tc) + '</h3>';
-    body += '<div class="meta">' + esc(d.id) + (d.tip ? ' · ' + esc(d.tip) : '') + '</div>';
-    body += '<span class="pill ' + level + '">' + label + '</span>';
-    if (reading) {
-      body += '<table style="margin-top:8px">';
-      body += '<tr><td>速度</td><td>' + fmtNum(reading.speed) + ' km/h</td></tr>';
-      body += '<tr><td>流量</td><td>' + fmtNum(reading.volume) + '</td></tr>';
-      body += '<tr><td>佔用</td><td>' + fmtNum(reading.occupancy) + ' %</td></tr>';
-      body += '</table>';
-    } else {
-      body += '<p style="margin:8px 0 0;color:#94a3b8;font-size:.78rem">暫未有讀數</p>';
-    }
-    return body;
-  }
-
-  function levelColor(level) {
-    if (level === 'green') return '#22c55e';
-    if (level === 'yellow') return '#facc15';
-    if (level === 'red') return '#ef4444';
-    return '#64748b';
-  }
-  function levelLabel(level) {
-    if (level === 'green') return '暢通';
-    if (level === 'yellow') return '緩慢';
-    if (level === 'red') return '擠塞';
-    return '無數據';
-  }
-  function peopleLevelOf(n) {
-    if (n == null || isNaN(n)) return 'green';
-    if (n >= 301) return 'red';
-    if (n >= 51) return 'yellow';
-    return 'green'; // ≤50
-  }
-  function peopleMsg(level, n) {
-    if (n == null) return '等待數據…';
-    if (level === 'red') return '🔴 人流擠擁！請留意現場';
-    if (level === 'yellow') return '🟡 人流偏多，持續觀察';
-    return '🟢 人流暢通，氣氛輕鬆';
-  }
-  function trafficLevel(r) {
-    if (!r) return 'x';
-    const occ = num(r.occupancy);
-    const spd = num(r.speed);
-    if ((occ != null && occ >= 60) || (spd != null && spd <= 20)) return 'red';
-    if ((occ != null && occ >= 40) || (spd != null && spd <= 40)) return 'yellow';
-    if (occ != null || spd != null) return 'green';
-    return 'x';
-  }
-  function worse(a, b) {
-    const rank = { red: 3, yellow: 2, green: 1, x: 0 };
-    return (rank[a] || 0) >= (rank[b] || 0) ? a : b;
-  }
-  function num(v) {
-    if (v == null || v === '') return null;
-    const n = Number(v);
-    return isFinite(n) ? n : null;
-  }
-  function fmtNum(v) {
-    const n = num(v);
-    return n == null ? '—' : (Math.round(n * 10) / 10);
-  }
-  function esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
   function hkTime(d) {
     try {
       return new Intl.DateTimeFormat('zh-HK', {
-        timeZone: 'Asia/Hong_Kong', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-      }).format(d instanceof Date ? d : new Date(d));
-    } catch (e) {
-      const x = d instanceof Date ? d : new Date(d);
-      return x.toLocaleTimeString();
-    }
-  }
-  function hkTimeFull(d) {
-    try {
-      return new Intl.DateTimeFormat('zh-HK', {
         timeZone: 'Asia/Hong_Kong',
-        year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
       }).format(d instanceof Date ? d : new Date(d));
     } catch (e) {
-      return hkTime(d);
-    }
-  }
-  function showIotReceive(json, extracted, fetchAt) {
-    const fetchDate = fetchAt instanceof Date ? fetchAt : new Date(fetchAt || Date.now());
-    el.recvFetchTs.textContent = hkTimeFull(fetchDate) + '（香港）';
-    el.recvBadge.textContent = '已收到';
-    el.recvBadge.classList.remove('off');
-    if (extracted && extracted.value != null) {
-      el.recvPeople.textContent = String(extracted.value);
-    } else {
-      el.recvPeople.textContent = '—';
-    }
-    el.recvMetaId.textContent = (extracted && extracted.id != null) ? String(extracted.id) : '—';
-    if (extracted && extracted.ts) {
-      el.recvMetaTs.textContent = hkTimeFull(extracted.ts);
-    } else {
-      el.recvMetaTs.textContent = '—';
-    }
-    try {
-      el.recvRaw.textContent = JSON.stringify(json, null, 2);
-    } catch (e) {
-      el.recvRaw.textContent = String(json);
+      return String(d);
     }
   }
 
-  // —— Chart ——
-  const chart = new Chart(document.getElementById('peopleChart'), {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'no_of_people',
-        data: [],
-        borderColor: '#38bdf8',
-        backgroundColor: 'rgba(56,189,248,.18)',
-        fill: true,
-        tension: 0.35,
-        pointRadius: 4,
-        pointBackgroundColor: '#38bdf8',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: true,
-          labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } }
-        },
-        tooltip: {
-          callbacks: {
-            label: function (ctx) {
-              return 'no_of_people: ' + ctx.parsed.y;
-            },
-            afterLabel: function (ctx) {
-              const lv = peopleLevelOf(ctx.parsed.y);
-              return '等級：' + (lv === 'red' ? '紅 ≥301' : lv === 'yellow' ? '黃 51–300' : '綠 ≤50');
-            }
-          }
-        },
-        annotation: {
-          annotations: {
-            yellowLine: {
-              type: 'line',
-              yMin: 50,
-              yMax: 50,
-              borderColor: '#facc15',
-              borderWidth: 2,
-              borderDash: [6, 4],
-              label: {
-                display: true,
-                content: '黃界 50',
-                position: 'end',
-                backgroundColor: 'rgba(250,204,21,.9)',
-                color: '#0f172a',
-                font: { size: 10, weight: 'bold' },
-                padding: 3
-              }
-            },
-            redLine: {
-              type: 'line',
-              yMin: 300,
-              yMax: 300,
-              borderColor: '#ef4444',
-              borderWidth: 2,
-              borderDash: [6, 4],
-              label: {
-                display: true,
-                content: '紅界 300',
-                position: 'end',
-                backgroundColor: 'rgba(239,68,68,.92)',
-                color: '#fff',
-                font: { size: 10, weight: 'bold' },
-                padding: 3
-              }
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: '#94a3b8', maxTicksLimit: 8, font: { size: 10 } },
-          grid: { color: 'rgba(148,163,184,.12)' }
-        },
-        y: {
-          beginAtZero: true,
-          suggestedMax: 320,
-          ticks: { color: '#94a3b8', font: { size: 10 } },
-          grid: { color: 'rgba(148,163,184,.12)' },
-          title: { display: true, text: 'no_of_people（人數）', color: '#94a3b8', font: { size: 11 } }
-        }
+  function setChip(chip, textEl, text, cls) {
+    chip.classList.remove('ok', 'warn', 'err');
+    if (cls) chip.classList.add(cls);
+    textEl.textContent = text;
+  }
+
+  function signalLevel(n) {
+    if (n == null || Number.isNaN(n)) return 'idle';
+    return n > THRESHOLD ? 'red' : 'green';
+  }
+
+  function applySignal(count, field, meta) {
+    const level = signalLevel(count);
+    el.hero.classList.remove('mode-green', 'mode-red', 'mode-idle');
+    el.hero.classList.add('mode-' + level);
+
+    if (count == null || Number.isNaN(count)) {
+      el.countNum.textContent = '—';
+      el.statusLine.textContent = '等待 IoT 數據…';
+    } else {
+      el.countNum.textContent = String(count);
+      if (level === 'green') {
+        el.statusLine.textContent = '🟢 安全／正常';
+      } else if (level === 'red') {
+        el.statusLine.textContent = '🔴 人數偏高・請注意';
+      } else {
+        el.statusLine.textContent = '等待 IoT 數據…';
       }
     }
-  });
-
-  function pushHistory(count, source, ts) {
-    const when = ts ? new Date(ts) : new Date();
-    const level = peopleLevelOf(count);
-    state.history.push({ t: when, count: count, level: level, source: source });
-    if (state.history.length > HISTORY_MAX) state.history.shift();
-
-    chart.data.labels = state.history.map(function (h) { return hkTime(h.t); });
-    chart.data.datasets[0].data = state.history.map(function (h) { return h.count; });
-    // colour last point by level
-    const lastLv = level;
-    chart.data.datasets[0].borderColor = levelColor(lastLv);
-    chart.data.datasets[0].pointBackgroundColor = levelColor(lastLv);
-    chart.data.datasets[0].backgroundColor = levelColor(lastLv).replace(')', ',.18)').replace('rgb', 'rgba').replace('#22c55e', 'rgba(34,197,94,.18)').replace('#facc15', 'rgba(250,204,21,.18)').replace('#ef4444', 'rgba(239,68,68,.18)').replace('#38bdf8', 'rgba(56,189,248,.18)');
-    if (lastLv === 'green') chart.data.datasets[0].backgroundColor = 'rgba(34,197,94,.18)';
-    else if (lastLv === 'yellow') chart.data.datasets[0].backgroundColor = 'rgba(250,204,21,.18)';
-    else if (lastLv === 'red') chart.data.datasets[0].backgroundColor = 'rgba(239,68,68,.18)';
-    chart.update('none');
-
-    renderLog();
+    el.fieldUsed.textContent = field || '—';
+    el.metaId.textContent = meta && meta.id != null ? String(meta.id) : '—';
+    el.lastUpdate.textContent = hkTime(new Date());
   }
 
-  function renderLog() {
-    const rows = state.history.slice().reverse().slice(0, 20);
-    if (!rows.length) {
-      el.iotLogBody.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">暫未有更新</td></tr>';
-      return;
+  function pushChartPoint(value) {
+    const label = hkTime(new Date());
+    history.labels.push(label);
+    history.values.push(value);
+    const MAX = 60;
+    if (history.labels.length > MAX) {
+      history.labels.shift();
+      history.values.shift();
     }
-    el.iotLogBody.innerHTML = rows.map(function (h) {
-      const lv = h.level === 'red' ? '🔴 紅' : h.level === 'yellow' ? '🟡 黃' : '🟢 綠';
-      const src = h.source === 'iot' ? 'CocoPi' : h.source === 'demo' ? '演示' : h.source;
-      return '<tr><td>' + esc(hkTime(h.t)) + '</td><td>' + esc(h.count) + '</td><td>' + lv + '</td><td>' + esc(src) + '</td></tr>';
-    }).join('');
-  }
-
-  // —— People UI ——
-  function setPeople(count, source, meta) {
-    state.people = count;
-    state.peopleLevel = peopleLevelOf(count);
-    state.peopleSource = source;
-
-    el.peopleNum.textContent = count == null ? '—' : String(Math.round(count));
-    el.statPeople.textContent = count == null ? '—' : String(Math.round(count));
-    const lvText = state.peopleLevel === 'red' ? '🔴 擠擁' : state.peopleLevel === 'yellow' ? '🟡 注意' : '🟢 暢通';
-    el.statLevel.textContent = lvText;
-    el.alertMsg.textContent = peopleMsg(state.peopleLevel, count);
-    el.alertEmoji.textContent = state.peopleLevel === 'red' ? '🔴' : state.peopleLevel === 'yellow' ? '🟡' : '🟢';
-
-    el.alertBoard.classList.remove('green', 'yellow', 'red');
-    el.alertBoard.classList.add(state.peopleLevel);
-
-    if (meta && meta.ts) el.statTs.textContent = hkTime(meta.ts);
-    else if (count != null) el.statTs.textContent = hkTime(new Date());
-
-    if (source === 'iot') {
-      el.chipPeopleSrc.textContent = '人流：CocoPi（每分鐘）';
-      el.chipPeopleSrc.className = 'chip live';
-      el.chipMode.textContent = '模式：實時 IoT · 每分鐘';
-      el.chipMode.className = 'chip live';
-      el.statIot.textContent = '✅ 已連線（每分鐘）';
-      el.demoHint.textContent = '已收到 CocoPi 數據（每 1 分鐘更新）；滑桿仍可臨時覆寫做課堂對比。';
-    } else if (source === 'demo') {
-      el.chipPeopleSrc.textContent = '人流：演示模式';
-      el.chipPeopleSrc.className = 'chip warn';
-      el.chipMode.textContent = '模式：課堂演示';
-      el.chipMode.className = 'chip warn';
-      if (!state.iotOk) el.statIot.textContent = '⚠️ API 離線';
-    }
-
-    updateUpgrade();
-  }
-
-  function updateUpgrade() {
-    const peopleHot = state.peopleLevel === 'yellow' || state.peopleLevel === 'red';
-    const trafficHot = state.nearbyWorst === 'yellow' || state.nearbyWorst === 'red';
-    if (peopleHot && trafficHot) {
-      el.upgradeTip.classList.add('show');
-      el.alertSub.textContent = '人流「' + levelLabel(state.peopleLevel) + '」＋附近交通「' + levelLabel(state.nearbyWorst) + '」';
-    } else {
-      el.upgradeTip.classList.remove('show');
-      el.alertSub.textContent = '≤50 綠｜51–300 黃｜≥301 紅　·　雙條件齊黃／紅先升級';
+    if (chart) {
+      chart.data.labels = history.labels.slice();
+      chart.data.datasets[0].data = history.values.slice();
+      chart.update('none');
     }
   }
 
-  // —— Detectors list + map colours ——
-  function renderDetectors() {
-    let worst = 'x';
-    el.detectorList.innerHTML = DETECTORS.map(function (d) {
-      const r = state.trafficById[d.id];
-      const lv = trafficLevel(r);
-      worst = worse(lv, worst);
-      const speed = r ? fmtNum(r.speed) + ' km/h' : '—';
-      const occ = r ? fmtNum(r.occupancy) + '%' : '—';
-      return '<div class="det-row">' +
-        '<i class="dot ' + (lv === 'green' ? 'g' : lv === 'yellow' ? 'y' : lv === 'red' ? 'r' : 'x') + '"></i>' +
-        '<div><div class="name">' + esc(d.road_tc) + '</div><div class="sub">' + esc(d.id) + (d.tip ? ' · ' + esc(d.tip) : '') + '</div></div>' +
-        '<div class="vals"><strong>' + levelLabel(lv) + '</strong>' + speed + ' · ' + occ + '</div>' +
-        '</div>';
-    }).join('');
-    state.nearbyWorst = worst;
+  function initChart() {
+    const ctx = document.getElementById('peopleChart').getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 260);
+    grad.addColorStop(0, 'rgba(110,168,255,0.45)');
+    grad.addColorStop(1, 'rgba(110,168,255,0.02)');
 
-    DETECTORS.forEach(function (d) {
-      const r = state.trafficById[d.id];
-      const lv = trafficLevel(r);
-      const m = markers[d.id];
-      if (!m) return;
-      m.setStyle({ fillColor: levelColor(lv === 'x' ? 'x' : lv), color: '#fff' });
-      m.setPopupContent(popupHtml(d, r));
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'no_of_face（人臉／人數）',
+            data: [],
+            borderColor: '#6ea8ff',
+            backgroundColor: grad,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#9ec2ff',
+            borderWidth: 2.5
+          },
+          {
+            label: '門檻 = 5',
+            data: [],
+            borderColor: 'rgba(255,77,109,0.85)',
+            borderDash: [8, 6],
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            tension: 0
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: '#9aadc8', font: { family: 'Noto Sans TC', size: 11 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: function (c) {
+                if (c.datasetIndex === 1) return '門檻：5';
+                return '人數：' + c.parsed.y;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#7a90b0', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+            grid: { color: 'rgba(255,255,255,0.04)' }
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: 10,
+            ticks: { color: '#7a90b0', precision: 0 },
+            grid: { color: 'rgba(255,255,255,0.06)' }
+          }
+        }
+      }
     });
 
-    const hotN = DETECTORS.filter(function (d) {
-      const lv = trafficLevel(state.trafficById[d.id]);
-      return lv === 'yellow' || lv === 'red';
-    }).length;
-    el.mapMeta.textContent = '附近 ' + DETECTORS.length + ' 個探測器 · 黃／紅 ' + hotN + ' 個 · 最差：' + levelLabel(worst);
-    updateUpgrade();
+    // Keep threshold dataset length in sync via plugin-like update hook
+    const _update = chart.update.bind(chart);
+    chart.update = function (mode) {
+      const n = chart.data.datasets[0].data.length;
+      chart.data.datasets[1].data = Array(n).fill(THRESHOLD);
+      return _update(mode);
+    };
   }
 
-  // —— Traffic XML ——
-  async function loadTraffic() {
-    el.chipTrafficSrc.textContent = '交通：更新中…';
+  function extractCount(payload) {
+    const row = payload && Array.isArray(payload.data) && payload.data[0] ? payload.data[0] : payload;
+    if (!row || typeof row !== 'object') return { count: null, field: null, meta: null, row: null };
+    const keys = ['no_of_face', 'no_of_people', 'count', 'people', 'face', 'faces'];
+    let field = null, count = null;
+    for (let i = 0; i < keys.length; i++) {
+      if (row[keys[i]] != null && row[keys[i]] !== '') {
+        field = keys[i];
+        count = Number(row[keys[i]]);
+        break;
+      }
+    }
+    return { count: Number.isFinite(count) ? count : null, field: field, meta: row.meta || null, row: row };
+  }
+
+  async function pollIot() {
+    if (demoMode) return;
+    try {
+      const res = await fetch(COCOPI_URL, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      el.jsonPanel.textContent = JSON.stringify(json, null, 2);
+      const extracted = extractCount(json);
+      applySignal(extracted.count, extracted.field, extracted.meta);
+      // Every successful poll plots a point (even if meta.id unchanged)
+      if (extracted.count != null) {
+        pushChartPoint(extracted.count);
+      }
+      setChip(el.chipIot, el.chipIotText, 'IoT：已連接 · ' + (extracted.field || '?'), 'ok');
+    } catch (err) {
+      setChip(el.chipIot, el.chipIotText, 'IoT：暫時失敗（可開演示）', 'err');
+      el.jsonPanel.textContent = '讀取失敗：' + (err && err.message ? err.message : String(err));
+    }
+  }
+
+  function trafficLevel(speed, occ) {
+    const s = Number(speed), o = Number(occ);
+    if ((Number.isFinite(o) && o >= 60) || (Number.isFinite(s) && s <= 20)) return 'red';
+    if ((Number.isFinite(o) && o >= 40) || (Number.isFinite(s) && s <= 40)) return 'yellow';
+    return 'green';
+  }
+
+  function colorFor(level) {
+    if (level === 'red') return '#ff4d6d';
+    if (level === 'yellow') return '#ffc857';
+    return '#22d38a';
+  }
+
+  const map = L.map('map', { zoomControl: true, attributionControl: true })
+    .setView(MAP_CENTER, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  // Highlight 聚星路 area approx
+  L.circle(MAP_CENTER, {
+    radius: 450, color: '#6ea8ff', weight: 1.5,
+    fillColor: '#6ea8ff', fillOpacity: 0.08
+  }).addTo(map).bindPopup('聚星路一帶（約）');
+
+  DETECTORS.forEach(function (d) {
+    const m = L.circleMarker([d.lat, d.lng], {
+      radius: 9, color: '#fff', weight: 1.5, fillColor: '#556', fillOpacity: 0.95
+    }).addTo(map);
+    m.bindPopup('<strong>' + d.road_tc + '</strong><br/>' + d.id + '<br/><em>' + d.tip + '</em>');
+    markers[d.id] = m;
+  });
+
+  function renderDetectorList(byId) {
+    el.detectorList.innerHTML = '';
+    DETECTORS.forEach(function (d) {
+      const live = byId[d.id];
+      const level = live ? trafficLevel(live.speed, live.occupancy) : 'idle';
+      const speed = live && live.speed != null ? live.speed : '—';
+      const occ = live && live.occupancy != null ? live.occupancy : '—';
+      const div = document.createElement('div');
+      div.className = 'det';
+      div.innerHTML =
+        '<span class="bulb ' + (level === 'idle' ? '' : level) + '"></span>' +
+        '<div><div class="name">' + d.road_tc + '</div>' +
+        '<div class="stats">' + d.id + ' · ' + speed + ' km/h · 佔用 ' + occ + '%</div></div>';
+      el.detectorList.appendChild(div);
+      if (markers[d.id] && live) {
+        markers[d.id].setStyle({ fillColor: colorFor(level) });
+        markers[d.id].setPopupContent(
+          '<strong>' + d.road_tc + '</strong><br/>' + d.id +
+          '<br/>速度：' + speed + ' km/h<br/>佔用：' + occ + '%' +
+          '<br/>狀態：' + (level === 'red' ? '紅' : level === 'yellow' ? '黃' : '綠')
+        );
+      }
+    });
+  }
+
+  function parseXml(text) {
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    const byId = {};
+    const detectors = doc.getElementsByTagName('detector');
+    for (let i = 0; i < detectors.length; i++) {
+      const det = detectors[i];
+      const idNode = det.getElementsByTagName('detector_id')[0];
+      if (!idNode) continue;
+      const id = idNode.textContent.trim();
+      const lanes = det.getElementsByTagName('lane');
+      let speedSum = 0, occSum = 0, n = 0;
+      for (let j = 0; j < lanes.length; j++) {
+        const lane = lanes[j];
+        const sp = lane.getElementsByTagName('speed')[0];
+        const oc = lane.getElementsByTagName('occupancy')[0];
+        const s = sp ? Number(sp.textContent) : NaN;
+        const o = oc ? Number(oc.textContent) : NaN;
+        if (Number.isFinite(s) || Number.isFinite(o)) {
+          if (Number.isFinite(s)) speedSum += s;
+          if (Number.isFinite(o)) occSum += o;
+          n++;
+        }
+      }
+      if (n > 0) {
+        byId[id] = {
+          speed: Math.round(speedSum / n),
+          occupancy: Math.round(occSum / n)
+        };
+      }
+    }
+    return byId;
+  }
+
+  async function pollTraffic() {
     try {
       const res = await fetch(XML_URL, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const text = await res.text();
-      const doc = new DOMParser().parseFromString(text, 'application/xml');
-      const nodes = doc.querySelectorAll('detector, Detector, raw_data, segment');
-      // TD XML structure: often <detector_id> / nested under periods
-      const byId = {};
-      // Flexible parse: look for elements with detector id attributes or child tags
-      const all = doc.getElementsByTagName('*');
-      // Common format from TD: <jtis_speed_list> ... or detector blocks
-      // Try known pattern from prior app: <detector> with attributes or children
-      let parsed = 0;
-
-      // Pattern A: <detector id="..."> <speed> <volume> <occupancy>
-      Array.prototype.forEach.call(doc.querySelectorAll('detector'), function (node) {
-        const id = node.getAttribute('id') || node.getAttribute('detector_id') ||
-          (node.querySelector('detector_id, id') && node.querySelector('detector_id, id').textContent.trim());
-        if (!id) return;
-        const speed = textOf(node, ['speed', 'Speed', 'avg_speed']);
-        const volume = textOf(node, ['volume', 'Volume', 'vol']);
-        const occupancy = textOf(node, ['occupancy', 'Occupancy', 'occ']);
-        byId[id] = { speed: speed, volume: volume, occupancy: occupancy };
-        parsed++;
-      });
-
-      // Pattern B: TD raw_speed_volume_list — <detector><detector_id>…</detector_id><lanes><lane><speed>…
-      if (parsed === 0) {
-        Array.prototype.forEach.call(doc.querySelectorAll('detector'), function (det) {
-          const idNode = det.querySelector('detector_id');
-          const id = idNode ? idNode.textContent.trim() : '';
-          if (!id) return;
-          const lanes = det.querySelectorAll('lane');
-          let speedSum = 0, occSum = 0, volSum = 0, nSp = 0, nOcc = 0, nVol = 0;
-          Array.prototype.forEach.call(lanes.length ? lanes : [det], function (lane) {
-            const sp = num(textOf(lane, ['speed', 'Speed', 'avg_speed']));
-            const oc = num(textOf(lane, ['occupancy', 'Occupancy', 'occ']));
-            const vo = num(textOf(lane, ['volume', 'Volume', 'vol']));
-            if (sp != null) { speedSum += sp; nSp++; }
-            if (oc != null) { occSum += oc; nOcc++; }
-            if (vo != null) { volSum += vo; nVol++; }
-          });
-          byId[id] = {
-            speed: nSp ? (speedSum / nSp) : null,
-            volume: nVol ? volSum : null,
-            occupancy: nOcc ? (occSum / nOcc) : null
-          };
-          parsed++;
-        });
-      }
-
-      // Pattern C: attributes on any element named like data
-      if (parsed === 0) {
-        Array.prototype.forEach.call(all, function (node) {
-          const id = node.getAttribute('detector_id') || node.getAttribute('Detector_ID');
-          if (!id) return;
-          byId[id] = {
-            speed: node.getAttribute('speed') || node.getAttribute('Speed'),
-            volume: node.getAttribute('volume') || node.getAttribute('Volume'),
-            occupancy: node.getAttribute('occupancy') || node.getAttribute('Occupancy')
-          };
-          parsed++;
-        });
-      }
-
-      state.trafficById = byId;
+      const byId = parseXml(text);
       let hit = 0;
       PRIORITY_IDS.forEach(function (id) { if (byId[id]) hit++; });
-      el.chipTrafficSrc.textContent = '交通：政府公開資料（每分鐘 · 命中 ' + hit + '/' + PRIORITY_IDS.length + '）';
-      el.chipTrafficSrc.className = hit ? 'chip live' : 'chip warn';
-      renderDetectors();
+      renderDetectorList(byId);
+      setChip(el.chipTraffic, el.chipTrafficText,
+        '交通：政府公開資料（每分鐘 · 命中 ' + hit + '/' + PRIORITY_IDS.length + '）',
+        hit > 0 ? 'ok' : 'warn');
     } catch (err) {
-      console.warn('traffic load failed', err);
-      el.chipTrafficSrc.textContent = '交通：載入失敗';
-      el.chipTrafficSrc.className = 'chip err';
-      renderDetectors();
+      renderDetectorList({});
+      setChip(el.chipTraffic, el.chipTrafficText, '交通：讀取失敗', 'err');
     }
   }
 
-  function textOf(parent, names) {
-    for (let i = 0; i < names.length; i++) {
-      const n = parent.querySelector(names[i]);
-      if (n && n.textContent.trim() !== '') return n.textContent.trim();
+  // Demo mode
+  el.demoToggle.addEventListener('change', function () {
+    demoMode = el.demoToggle.checked;
+    el.demoSlider.disabled = !demoMode;
+    if (demoMode) {
+      setChip(el.chipIot, el.chipIotText, 'IoT：課堂演示模式', 'warn');
+      const v = Number(el.demoSlider.value);
+      applySignal(v, 'demo', { id: 'demo' });
+      pushChartPoint(v);
+      el.jsonPanel.textContent = JSON.stringify({
+        data: [{ no_of_face: v, meta: { id: 'demo', note: '課堂演示' } }]
+      }, null, 2);
+    } else {
+      pollIot();
     }
-    return null;
-  }
-
-  // —— CocoPi people ——
-  function extractPeople(payload) {
-    if (payload == null) return null;
-    let obj = payload;
-    if (typeof payload === 'string') {
-      try { obj = JSON.parse(payload); } catch (e) { return null; }
-    }
-    // Prefer data array latest
-    let candidates = [];
-    if (Array.isArray(obj)) candidates = obj;
-    else if (obj && Array.isArray(obj.data)) candidates = obj.data;
-    else if (obj && typeof obj === 'object') candidates = [obj];
-
-    if (!candidates.length) return null;
-    // pick last / highest meta.id
-    let best = candidates[0];
-    let bestId = -1;
-    candidates.forEach(function (c) {
-      const id = c && c.meta && num(c.meta.id);
-      if (id != null && id >= bestId) { bestId = id; best = c; }
-    });
-    if (bestId < 0) best = candidates[candidates.length - 1];
-
-    const keys = ['no_of_people', 'people', 'count', 'value', 'light_value', 'People', 'Count', 'num', 'number'];
-    let value = null;
-    for (let i = 0; i < keys.length; i++) {
-      if (best[keys[i]] != null && best[keys[i]] !== '') {
-        value = num(best[keys[i]]);
-        if (value != null) break;
-      }
-    }
-    // nested
-    if (value == null && best.data) {
-      for (let i = 0; i < keys.length; i++) {
-        if (best.data[keys[i]] != null) {
-          value = num(best.data[keys[i]]);
-          if (value != null) break;
-        }
-      }
-    }
-    // any numeric field fallback
-    if (value == null && typeof best === 'object') {
-      for (const k of Object.keys(best)) {
-        if (k === 'meta') continue;
-        const n = num(best[k]);
-        if (n != null) { value = n; break; }
-      }
-    }
-
-    let ts = null;
-    if (best.meta && best.meta.timestamp != null) {
-      const raw = num(best.meta.timestamp);
-      // heuristic: if too small for ms, treat as sec; if huge weird, try as-is
-      if (raw != null) {
-        ts = raw > 1e12 ? raw : raw > 1e9 ? raw * 1000 : Date.now();
-      }
-    }
-    const mid = best.meta && best.meta.id != null ? String(best.meta.id) : null;
-    return { value: value, ts: ts, id: mid, raw: best };
-  }
-
-  async function pollPeople() {
-    if (state.demoForce) return;
-    let lastErr = null;
-    for (let i = 0; i < PEOPLE_URLS.length; i++) {
-      const url = PEOPLE_URLS[i];
-      try {
-        const res = await fetch(url, { cache: 'no-store', mode: 'cors' });
-        if (!res.ok) { lastErr = 'HTTP ' + res.status; continue; }
-        const json = await res.json();
-        const extracted = extractPeople(json);
-        const fetchedAt = Date.now();
-        showIotReceive(json, extracted, fetchedAt);
-        if (!extracted || extracted.value == null) {
-          lastErr = '無可用人數欄位（見下方原始 JSON）';
-          continue;
-        }
-        // Always update board + append chart point every minute tick,
-        // even when meta.id is unchanged (same reading still plotted).
-        state.iotLastId = extracted.id;
-        state.iotOk = true;
-        state.demoForce = false;
-        setPeople(extracted.value, 'iot', { ts: fetchedAt });
-        pushHistory(extracted.value, 'iot', fetchedAt);
-        el.statIot.textContent = '✅ 已連線（每分鐘）';
-        return;
-      } catch (err) {
-        lastErr = err && err.message ? err.message : String(err);
-      }
-    }
-    // failed
-    state.iotOk = false;
-    el.statIot.textContent = '❌ ' + (lastErr || '離線');
-    el.chipPeopleSrc.textContent = '人流：API 離線';
-    el.chipPeopleSrc.className = 'chip err';
-    if (state.peopleSource !== 'demo') {
-      el.chipMode.textContent = '模式：課堂演示';
-      el.chipMode.className = 'chip warn';
-      el.demoHint.textContent = 'CocoPi 暫時無法連線（會每分鐘重試）。請用滑桿模擬人數，恢復後會自動接上。';
-      // seed demo once if no people yet
-      if (state.people == null) {
-        applyDemo(Number(el.demoSlider.value), false);
-      }
-    }
-  }
-
-  function applyDemo(n, record) {
-    state.demoForce = true;
-    setPeople(n, 'demo', { ts: Date.now() });
-    if (record !== false) pushHistory(n, 'demo', Date.now());
-    el.demoVal.textContent = String(n);
-  }
-
-  // —— Events ——
+  });
   el.demoSlider.addEventListener('input', function () {
     el.demoVal.textContent = el.demoSlider.value;
+    if (!demoMode) return;
+    const v = Number(el.demoSlider.value);
+    applySignal(v, 'demo', { id: 'demo' });
+    pushChartPoint(v);
+    el.jsonPanel.textContent = JSON.stringify({
+      data: [{ no_of_face: v, meta: { id: 'demo', note: '課堂演示' } }]
+    }, null, 2);
   });
-  el.demoSlider.addEventListener('change', function () {
-    applyDemo(Number(el.demoSlider.value), true);
-  });
-  document.querySelectorAll('[data-demo]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const n = Number(btn.getAttribute('data-demo'));
-      el.demoSlider.value = String(n);
-      applyDemo(n, true);
-    });
-  });
-  document.getElementById('btnRetryIot').addEventListener('click', function () {
-    state.demoForce = false;
-    state.iotLastId = null;
-    el.statIot.textContent = '重試中…';
-    pollPeople();
-  });
-  document.getElementById('btnRefreshTraffic').addEventListener('click', function () {
-    loadTraffic();
-  });
-  document.getElementById('btnClearChart').addEventListener('click', function () {
-    state.history = [];
-    chart.data.labels = [];
-    chart.data.datasets[0].data = [];
-    chart.update();
-    renderLog();
-  });
-
-  // —— Boot ——
-  renderDetectors();
-  // Show slider value as provisional until IoT responds (do not lock demoForce)
   el.demoVal.textContent = el.demoSlider.value;
-  setPeople(null, 'none', null);
-  el.statIot.textContent = '連線中…';
-  el.chipPeopleSrc.textContent = '人流：連線 CocoPi…';
-  el.chipMode.textContent = '模式：載入中';
-  loadTraffic();
-  pollPeople().then(function () {
-    if (!state.iotOk && state.people == null) {
-      applyDemo(Number(el.demoSlider.value), true);
-    }
-  });
-  setInterval(pollPeople, IOT_POLL_MS);
-  setInterval(loadTraffic, TRAFFIC_POLL_MS);
 
-  // fix leaflet size after layout
+  initChart();
+  renderDetectorList({});
+  pollIot();
+  pollTraffic();
+  setInterval(function () { if (!demoMode) pollIot(); }, POLL_MS);
+  setInterval(pollTraffic, POLL_MS);
+
+  // Fix leaflet size after layout
   setTimeout(function () { map.invalidateSize(); }, 200);
   window.addEventListener('resize', function () { map.invalidateSize(); });
 })();
